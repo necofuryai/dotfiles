@@ -8,6 +8,13 @@ export HISTFILE=~/.zsh_history
 export MANPAGER="col -b -x|vim -R -c 'set ft=man nolist nomod noma' -"
 export GPG_TTY=$(tty)
 
+# MANPAGER
+if command -v nvim &> /dev/null; then
+    export MANPAGER="nvim +Man!"
+else
+    export MANPAGER="col -b -x|vim -R -c 'set ft=man nolist nomod noma' -"
+fi
+
 # Volta
 export VOLTA_HOME="$HOME/.volta"
 
@@ -113,6 +120,18 @@ tgz() {
   xattr -rc "${@:2}" && \
   env COPYFILE_DISABLE=1 tar zcvf "$1" --exclude=".DS_Store" "${@:2}"
 }
+
+# peco
+
+function peco-select-history() {
+    BUFFER=$(fc -l -n 1 | tail -r | awk '!a[$0]++' | peco --query "$LBUFFER")
+    CURSOR=${#BUFFER}
+}
+
+if command -v peco &> /dev/null; then
+    zle -N peco-select-history
+    bindkey '^R' peco-select-history
+fi
 
 # ============================================
 # Aliases
