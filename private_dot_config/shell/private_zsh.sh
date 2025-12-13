@@ -62,3 +62,40 @@ fi
 # Kiro shell integration
 [[ "$TERM_PROGRAM" == "kiro" ]] && command -v kiro &>/dev/null && \
   . "$(kiro --locate-shell-integration-path zsh)"
+
+# peco
+
+function peco-select-history() {
+    BUFFER=$(fc -l -n 1 | tail -r | awk '!a[$0]++' | peco --query "$LBUFFER")
+    CURSOR=${#BUFFER}
+}
+
+if command -v peco &> /dev/null; then
+    zle -N peco-select-history
+    bindkey '^R' peco-select-history
+fi
+
+# --------------------------------------------
+# brew Auto Update
+# --------------------------------------------
+if command -v brew &> /dev/null; then
+    function brew() {
+        command brew "$@"
+        local exit_code=$?
+
+        case "$1" in
+            install|uninstall|remove)
+                if [[ $exit_code -eq 0 ]]; then
+                    echo "Update Brewfile..."
+                    command brew bundle dump --file=~/.Brewfile --force
+                    if command -v chezmoi &>/dev/null; then
+                        chezmoi add ~/.Brewfile
+                        echo "Add/Delete for chezmoi"
+                    fi
+                fi
+                ;;
+        esac
+
+        return $exit_code
+    }
+fi
