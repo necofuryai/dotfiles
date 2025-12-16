@@ -47,12 +47,12 @@ path=(
   $VOLTA_HOME/bin
   $PNPM_HOME
   $HOME/.bun/bin
-  /usr/bin
+  $path              # Homebrewなど既存のパスを先に配置
+  /usr/bin          # システム標準は後に
   /usr/sbin
   /bin
   /sbin
   /Library/Apple/usr/bin
-  $path
 )
 
 # ============================================
