@@ -99,3 +99,9 @@ if command -v brew &> /dev/null; then
         return $exit_code
     }
 fi
+
+# --------------------------------------------
+# K8s Complementary Settings
+# --------------------------------------------
+source <(kubectl completion zsh)
+compdef k=kubectl
