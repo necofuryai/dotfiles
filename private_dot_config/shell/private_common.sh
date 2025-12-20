@@ -47,8 +47,8 @@ path=(
   $VOLTA_HOME/bin
   $PNPM_HOME
   $HOME/.bun/bin
-  $path              # Homebrewなど既存のパスを先に配置
-  /usr/bin          # システム標準は後に
+  $path
+  /usr/bin
   /usr/sbin
   /bin
   /sbin
@@ -84,7 +84,19 @@ if command -v eza &>/dev/null; then
   alias ls='eza --group-directories-first'
   alias tree='eza --tree'
 else
-  alias ls='ls -G'
+    if [ "$(uname)" = "Darwin" ]; then
+        alias ls='ls -G'
+    else
+        alias ls='ls --color=auto'
+    fi
+fi
+
+alias grep='grep --color=auto'
+
+# Neovim
+if command -v nvim &> /dev/null; then
+    alias vim='nvim'
+    alias vi='nvim'
 fi
 
 # Kubernetes
