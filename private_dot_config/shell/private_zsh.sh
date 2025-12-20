@@ -101,17 +101,6 @@ if command -v brew &> /dev/null; then
 fi
 
 # --------------------------------------------
-# precmd
-# --------------------------------------------
-precmd() {
-  if [ -z "$_FIRST_PROMPT" ]; then
-    _FIRST_PROMPT=1
-  else
-    echo
-  fi
-}
-
-# --------------------------------------------
 # K8s Complementary Settings
 # --------------------------------------------
 source <(kubectl completion zsh)
