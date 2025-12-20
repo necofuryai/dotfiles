@@ -4,3 +4,5 @@ for f in ~/.config/shell/{common,zsh}.sh; do
 done
 
 alias brewup='brew update && brew upgrade --greedy && brew autoremove && brew cleanup && brew doctor; if ! git -C ~/.local/share/chezmoi diff --quiet; then git -C ~/.local/share/chezmoi add -A && git -C ~/.local/share/chezmoi commit -m "update dotfiles" && git -C ~/.local/share/chezmoi push; fi'
+
+export EDITOR=nvim
