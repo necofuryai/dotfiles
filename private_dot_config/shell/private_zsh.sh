@@ -90,6 +90,8 @@ if command -v brew &> /dev/null; then
                     command brew bundle dump --file=~/.Brewfile --force
                     if command -v chezmoi &>/dev/null; then
                         chezmoi add ~/.Brewfile
+                        chezmoi git -- commit -S -m "Brewfile: $1 ${@:2}"
+                        chezmoi git -- push
                         echo "Add/Delete for chezmoi"
                     fi
                 fi
