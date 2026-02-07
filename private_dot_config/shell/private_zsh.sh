@@ -1,70 +1,33 @@
+============================================
+# zsh.sh
 # ============================================
+
+# --------------------------------------------
+# PATH
+# --------------------------------------------
+typeset -U PATH path
+
+# --------------------------------------------
 # Zsh Options
-# ============================================
-setopt auto_cd
-setopt auto_menu
-setopt auto_list
-setopt list_packed
-setopt hist_ignore_dups
-setopt hist_reduce_blanks
-setopt hist_save_no_dups
-setopt share_history
-setopt complete_in_word
-setopt nonomatch
-setopt RM_STAR_SILENT
+# --------------------------------------------
+setopt auto_cd              
+setopt hist_ignore_dups     
+setopt hist_reduce_blanks   
+setopt hist_save_no_dups    
+setopt share_history        
+setopt complete_in_word     
 
-ZLE_REMOVE_SUFFIX_CHARS=$''
+# --------------------------------------------
+# Completion Settings
+# --------------------------------------------
+autoload -U +X compinit && compinit
 
-# ============================================
-# PATH Configuration
-# ============================================
-typeset -U path PATH
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'  
+zstyle ':completion:*' menu select                          
 
-# ============================================
-# Completion System
-# ============================================
-autoload -Uz colors && colors
-
-# fpath setup (before compinit)
-if [[ -n "$BREW_PREFIX" ]]; then
-  fpath=($BREW_PREFIX/share/zsh-completions $fpath)
-fi
-
-# Docker CLI completions
-[[ -d "$HOME/.docker/completions" ]] && fpath=($HOME/.docker/completions $fpath)
-
-# Bun completions
-[[ -s "$HOME/.bun/_bun" ]] && source "$HOME/.bun/_bun"
-
-# Initialize completion system (once!)
-autoload -Uz compinit && compinit
-
-# Completion styles
-zstyle ":completion:*:commands" rehash 1
-zstyle ':completion:*' matcher-list '' 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
-zstyle ':completion:*' menu select
-zstyle ':completion:*' use-cache yes
-zstyle ':completion:*' cache-path ~/.zsh/cache
-zstyle ':completion:*' group-name ''
-zstyle ':completion:*:descriptions' format '%B%F{green}[%d]%f%b'
-zstyle ':completion:*:processes' command 'ps -au$USER'
-
-# ============================================
-# Plugins & Tools
-# ============================================
-if [[ -n "$BREW_PREFIX" ]]; then
-  [[ -f "$BREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] && \
-    source "$BREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
-  [[ -f "$BREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] && \
-    source "$BREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
-fi
-
-# Kiro shell integration
-[[ "$TERM_PROGRAM" == "kiro" ]] && command -v kiro &>/dev/null && \
-  . "$(kiro --locate-shell-integration-path zsh)"
-
-# peco
-
+# --------------------------------------------
+# Peco
+# --------------------------------------------
 function peco-select-history() {
     BUFFER=$(fc -l -n 1 | tail -r | awk '!a[$0]++' | peco --query "$LBUFFER")
     CURSOR=${#BUFFER}
@@ -76,35 +39,47 @@ if command -v peco &> /dev/null; then
 fi
 
 # --------------------------------------------
-# brew Auto Update
+# Brew File Auto Update Settings
 # --------------------------------------------
 if command -v brew &> /dev/null; then
+    function _update_brewfile() {
+        {
+            command brew tap
+            command brew leaves --installed-on-request | sed 's/^/brew "/' | sed 's/$/"/'
+            command brew list --cask -1 | sed 's/^/cask "/' | sed 's/$/"/'
+        } > ~/.Brewfile
+        echo "Brewfile updated"
+    }
+
     function brew() {
         command brew "$@"
         local exit_code=$?
-
         case "$1" in
-            install|uninstall|remove)
-                if [[ $exit_code -eq 0 ]]; then
-                    echo "Update Brewfile..."
-                    command brew bundle dump --file=~/.Brewfile --force
-                    if command -v chezmoi &>/dev/null; then
-                        chezmoi add ~/.Brewfile
-                        chezmoi git -- add dot_Brewfile
-                        chezmoi git -- commit -S -m "Brewfile: $1 ${@:2}"
-                        chezmoi git -- push
-                        echo "Add/Delete for chezmoi"
-                    fi
-                fi
+            install|uninstall|remove|untap)
+                [[ $exit_code -eq 0 ]] && _update_brewfile
                 ;;
         esac
-
         return $exit_code
     }
 fi
 
 # --------------------------------------------
-# K8s Complementary Settings
+# Precmd Settings
 # --------------------------------------------
-source <(kubectl completion zsh)
-compdef k=kubectl
+precmd() {
+  if [ -z "$_FIRST_PROMPT" ]; then
+    _FIRST_PROMPT=1
+  else
+    echo
+  fi
+}
+
+# --------------------------------------------
+# Plugins
+# --------------------------------------------
+if [ -n "$HOMEBREW_PREFIX" ]; then
+    [ -f "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ] && \
+        source "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+    [ -f "$HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ] && \
+        source "$HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+fi
