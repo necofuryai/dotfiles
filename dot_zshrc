@@ -9,26 +9,12 @@ done
 if [[ "$(uname)" == "Darwin" ]]; then
     alias brewup='brew update && brew upgrade --greedy && brew autoremove && brew cleanup && brew doctor; if ! git -C ~/.local/share/chezmoi diff --quiet; then git -C ~/.local/share/chezmoi add -A && git -C ~/.local/share/chezmoi commit -m "update dotfiles" && git -C ~/.local/share/chezmoi push; fi'
 
-    _update_brewfile() {
-        brew bundle dump --file=~/.Brewfile --force 2>/dev/null
-    }
-
-    brew() {
-        command brew "$@"
-        local exit_code=$?
-        case "$1" in
-            install|uninstall|remove|untap) [[ $exit_code -eq 0 ]] && _update_brewfile ;;
-        esac
-        return $exit_code
-    }
-    
-    # export CLAUDE_ENV_FILE="$HOME/.claude/env-loader.sh"
+    # brew() and _update_brewfile defined in zsh.sh
     export EDITOR=nvim
 
     # Claude
     alias claude-or='ANTHROPIC_BASE_URL="https://openrouter.ai/api" ANTHROPIC_AUTH_TOKEN="$(op read "op://Personal/OPENROUTER_API_KEY/credential")" ANTHROPIC_API_KEY="" MAX_THINKING_TOKENS="0" claude'
     alias claude-mm='ANTHROPIC_BASE_URL="https://api.minimax.io/anthropic" ANTHROPIC_AUTH_TOKEN="$(op read "op://Personal/MINIMAX_API_KEY/credential")" ANTHROPIC_MODEL="MiniMax-M2.1" claude'
-    # export CLAUDE_ENV_FILE="$HOME/.claude/env-loader.sh"
     alias claude-mem='bun "/Users/masyusakai/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"'
 
     # Go
