@@ -28,6 +28,7 @@ fi
 export LANG=en_US.UTF-8
 export HISTSIZE=10000
 export SAVEHIST=10000
+export HISTFILE=~/.zsh_history
 export GPG_TTY=$(tty)
 
 # MANPAGER
