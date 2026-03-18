@@ -38,9 +38,6 @@ else
     export MANPAGER="col -b -x|vim -R -c 'set ft=man nolist nomod noma' -"
 fi
 
-# Volta
-export VOLTA_HOME="$HOME/.volta"
-
 # pnpm
 export PNPM_HOME="$HOME/Library/pnpm"
 
@@ -50,7 +47,7 @@ export PNPM_HOME="$HOME/Library/pnpm"
 # Note: Homebrew paths are already set by 'brew shellenv' above
 
 path=(
-  $VOLTA_HOME/bin
+  $HOME/.local/share/mise/shims
   $PNPM_HOME
   $HOME/.bun/bin
   $path

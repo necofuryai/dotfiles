@@ -115,6 +115,11 @@ precmd() {
 }
 
 # --------------------------------------------
+# mise (runtime version manager)
+# --------------------------------------------
+command -v mise &>/dev/null && eval "$(mise activate zsh)"
+
+# --------------------------------------------
 # K8s
 # --------------------------------------------
 if command -v kubectl &>/dev/null; then
