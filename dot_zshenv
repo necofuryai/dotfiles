@@ -1,0 +1,13 @@
+# ============================================
+# .zshenv
+# ============================================
+
+# Keep this file minimal: zsh reads it for every invocation.
+[ -r "$HOME/.config/shell/secrets.zsh" ] && . "$HOME/.config/shell/secrets.zsh"
+
+[ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
