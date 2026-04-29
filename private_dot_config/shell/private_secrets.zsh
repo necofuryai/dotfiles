@@ -12,32 +12,6 @@ _keychain_secret() {
   security find-generic-password -a "$account" -s "$service" -w 2>/dev/null
 }
 
-_op_secret() {
-  local ref="$1"
-
-  [[ -n "$ref" ]] || return 1
-  command -v op >/dev/null 2>&1 || return 1
-
-  op read "$ref" 2>/dev/null
-}
-
-_secret_value() {
-  local service="$1"
-  local op_ref="${2:-}"
-  local value
-
-  value="$(_keychain_secret "$service")" && [[ -n "$value" ]] && {
-    print -r -- "$value"
-    return 0
-  }
-
-  value="$(_op_secret "$op_ref")" && [[ -n "$value" ]] && {
-    print -r -- "$value"
-    return 0
-  }
-
-  return 1
-}
 
 _export_keychain_env() {
   local name="$1"

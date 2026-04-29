@@ -13,25 +13,6 @@ if [[ "$(uname)" == "Darwin" ]]; then
     export EDITOR=nvim
 
     # Claude
-    claude-or() {
-        local token
-        token="$(_secret_value "shell-env:ANTHROPIC_AUTH_TOKEN_OPENROUTER" "op://Personal/OPENROUTER_API_KEY/credential")"
-        if [[ -z "$token" ]]; then
-            echo "missing secret: shell-env:ANTHROPIC_AUTH_TOKEN_OPENROUTER" >&2
-            return 1
-        fi
-        ANTHROPIC_BASE_URL="https://openrouter.ai/api" ANTHROPIC_AUTH_TOKEN="$token" ANTHROPIC_API_KEY="" MAX_THINKING_TOKENS="0" command claude "$@"
-    }
-
-    claude-mm() {
-        local token
-        token="$(_secret_value "shell-env:ANTHROPIC_AUTH_TOKEN_MINIMAX" "op://Personal/MINIMAX_API_KEY/credential")"
-        if [[ -z "$token" ]]; then
-            echo "missing secret: shell-env:ANTHROPIC_AUTH_TOKEN_MINIMAX" >&2
-            return 1
-        fi
-        ANTHROPIC_BASE_URL="https://api.minimax.io/anthropic" ANTHROPIC_AUTH_TOKEN="$token" ANTHROPIC_MODEL="MiniMax-M2.1" command claude "$@"
-    }
     alias claude-mem='bun "/Users/masyusakai/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"'
 
     # Go
