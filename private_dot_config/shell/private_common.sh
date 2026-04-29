@@ -144,4 +144,6 @@ alias k=kubectl
 # ============================================
 # Starship Prompt
 # ============================================
-command -v starship &>/dev/null && eval "$(starship init zsh)"
+if [[ -o interactive && "${TERM:-}" != "dumb" ]] && command -v starship &>/dev/null; then
+  eval "$(starship init zsh)"
+fi
