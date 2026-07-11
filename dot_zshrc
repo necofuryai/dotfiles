@@ -1,28 +1,111 @@
 # ============================================
-# .zshrc
+# .zshrc — consolidated zsh config (macOS)
 # ============================================
 
-for f in ~/.config/shell/{common,zsh}.sh; do
-    [ -r "$f" ] && . "$f"
-done
+typeset -U path PATH fpath FPATH
 
-if [[ "$(uname)" == "Darwin" ]]; then
-    alias brewup='brew update && brew upgrade --greedy && brew autoremove && brew cleanup && brew doctor; if ! git -C ~/.local/share/chezmoi diff --quiet; then git -C ~/.local/share/chezmoi add -A && git -C ~/.local/share/chezmoi commit -m "update dotfiles" && git -C ~/.local/share/chezmoi push; fi'
-
-    # brew() and _update_brewfile defined in zsh.sh
-    export EDITOR=nvim
-
-    # Claude
-    alias claude-mem='bun "/Users/masyusakai/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"'
-
-    # Go
-    export GOENV_ROOT="$HOME/.goenv"
-    export GOPATH="$HOME/go"
-    export PATH="$GOENV_ROOT/bin:$PATH"
-    eval "$(goenv init -)"
-    export PATH="$GOPATH/bin:$PATH"
+# Homebrew env: login shells get this from .zprofile;
+# this fallback covers non-login interactive shells
+if [[ -z "$HOMEBREW_PREFIX" && -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
 fi
 
+# --------------------------------------------
+# Environment Variables
+# --------------------------------------------
+export LANG=en_US.UTF-8
+export HISTSIZE=10000
+export SAVEHIST=10000
+export HISTFILE=~/.zsh_history
+export GPG_TTY=$(tty)
+export EDITOR=nvim
+
+if command -v nvim &>/dev/null; then
+  export MANPAGER="nvim +Man!"
+else
+  export MANPAGER="col -b -x|vim -R -c 'set ft=man nolist nomod noma' -"
+fi
+
+export PNPM_HOME="$HOME/Library/pnpm"
+export GOPATH="$HOME/go"
+
+# --------------------------------------------
+# PATH
+# --------------------------------------------
+path=(
+  "$PNPM_HOME"
+  "$HOME/.bun/bin"
+  "$GOPATH/bin"
+  /opt/homebrew/opt/mysql-client/bin
+  $path
+)
+
+# goenv / rbenv (migration to mise pending)
+export GOENV_ROOT="$HOME/.goenv"
+export PATH="$GOENV_ROOT/bin:$PATH"
+command -v goenv &>/dev/null && eval "$(goenv init -)"
+command -v rbenv &>/dev/null && eval "$(rbenv init - zsh)"
+
+# --------------------------------------------
+# Zsh Options
+# --------------------------------------------
+setopt auto_cd
+setopt auto_menu
+setopt auto_list
+setopt list_packed
+setopt hist_ignore_dups
+setopt hist_reduce_blanks
+setopt hist_save_no_dups
+setopt share_history
+setopt complete_in_word
+setopt nonomatch
+setopt RM_STAR_SILENT
+
+ZLE_REMOVE_SUFFIX_CHARS=$''
+
+# --------------------------------------------
+# Completion System
+# --------------------------------------------
+autoload -Uz colors && colors
+
+# fpath must be complete before compinit; Homebrew ships
+# _kubectl, _bun, _gh, etc. in site-functions
+if [[ -n "$HOMEBREW_PREFIX" ]]; then
+  fpath=(
+    "$HOMEBREW_PREFIX/share/zsh/site-functions"
+    "$HOMEBREW_PREFIX/share/zsh-completions"
+    $fpath
+  )
+fi
+[[ -d "$HOME/.docker/completions" ]] && fpath=("$HOME/.docker/completions" $fpath)
+
+autoload -Uz compinit && compinit
+
+zstyle ":completion:*:commands" rehash 1
+zstyle ':completion:*' matcher-list '' 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
+zstyle ':completion:*' menu select
+zstyle ':completion:*' use-cache yes
+zstyle ':completion:*' cache-path ~/.zsh/cache
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%B%F{green}[%d]%f%b'
+zstyle ':completion:*:processes' command 'ps -au$USER'
+
+alias k=kubectl
+command -v kubectl &>/dev/null && compdef k=kubectl
+
+# --------------------------------------------
+# Functions
+# --------------------------------------------
+tgz() {
+  if [[ $# -lt 2 ]]; then
+    echo "Usage: tgz DIST SOURCE"
+    return 1
+  fi
+  xattr -rc "${@:2}" && \
+  env COPYFILE_DISABLE=1 tar zcvf "$1" --exclude=".DS_Store" "${@:2}"
+}
+
+# pdfview requires mutool (mupdf-tools) and timg; install them manually if needed
 pdfview() {
   local pdf="$1"
   local dpi="${2:-200}"
@@ -41,15 +124,99 @@ pdfview() {
   rm -rf "$tmp_dir"
 }
 
-# bun completions
-[ -s "/Users/masyusakai/.bun/_bun" ] && source "/Users/masyusakai/.bun/_bun"
+# --------------------------------------------
+# Aliases
+# --------------------------------------------
+if command -v eza &>/dev/null; then
+  alias ls='eza --group-directories-first'
+  alias tree='eza --tree'
+else
+  alias ls='ls -G'
+fi
 
-# Context7 API Key
-eval "$(rbenv init - zsh)"
+alias grep='grep --color=auto'
 
-# The next line updates PATH for the Google Cloud SDK.
-if [ -f '/Users/masyusakai/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/masyusakai/google-cloud-sdk/path.zsh.inc'; fi
+if command -v nvim &>/dev/null; then
+  alias vim='nvim'
+  alias vi='nvim'
+fi
 
-# The next line enables shell command completion for gcloud.
-if [ -f '/Users/masyusakai/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/masyusakai/google-cloud-sdk/completion.zsh.inc'; fi
-export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
+alias claude-mem='bun "$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"'
+
+# --------------------------------------------
+# Homebrew Bundle Sync
+# --------------------------------------------
+if command -v brew &>/dev/null; then
+  _update_brewfile() {
+    command brew bundle dump --force --tap --formula --cask --file="$HOME/.Brewfile"
+    echo "Brewfile updated"
+    if command -v chezmoi &>/dev/null; then
+      chezmoi add "$HOME/.Brewfile"
+      echo "Synced to chezmoi"
+    fi
+  }
+
+  brew() {
+    command brew "$@"
+    local exit_code=$?
+    case "$1" in
+      install|uninstall|remove|tap|untap)
+        [[ $exit_code -eq 0 ]] && _update_brewfile
+        ;;
+    esac
+    return $exit_code
+  }
+
+  brewup() {
+    brew update && brew upgrade --greedy && brew autoremove && brew cleanup && brew doctor
+    local repo="$HOME/.local/share/chezmoi"
+    if [[ -n "$(git -C "$repo" status --porcelain)" ]]; then
+      git -C "$repo" add -A && \
+      git -C "$repo" commit -m "chore: update Brewfile after brew upgrade" && \
+      git -C "$repo" push
+    fi
+  }
+fi
+
+# --------------------------------------------
+# Google Cloud SDK
+# --------------------------------------------
+if [ -f "$HOME/google-cloud-sdk/path.zsh.inc" ]; then . "$HOME/google-cloud-sdk/path.zsh.inc"; fi
+if [ -f "$HOME/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/google-cloud-sdk/completion.zsh.inc"; fi
+
+# Kiro shell integration
+[[ "$TERM_PROGRAM" == "kiro" ]] && command -v kiro &>/dev/null && \
+  . "$(kiro --locate-shell-integration-path zsh)"
+
+# --------------------------------------------
+# Plugins & Widgets
+# --------------------------------------------
+if [[ -n "$HOMEBREW_PREFIX" ]]; then
+  [[ -f "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]] && \
+    source "$HOMEBREW_PREFIX/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+fi
+
+function peco-select-history() {
+    BUFFER=$(fc -l -n 1 | tail -r | awk '!a[$0]++' | peco --query "$LBUFFER")
+    CURSOR=${#BUFFER}
+}
+
+if command -v peco &>/dev/null; then
+    zle -N peco-select-history
+    bindkey '^R' peco-select-history
+fi
+
+# zsh-syntax-highlighting must be sourced after all ZLE widget definitions
+if [[ -n "$HOMEBREW_PREFIX" ]]; then
+  [[ -f "$HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]] && \
+    source "$HOMEBREW_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+fi
+
+# --------------------------------------------
+# mise & Prompt
+# --------------------------------------------
+command -v mise &>/dev/null && eval "$(mise activate zsh)"
+
+if [[ -o interactive && "${TERM:-}" != "dumb" ]] && command -v starship &>/dev/null; then
+  eval "$(starship init zsh)"
+fi
