@@ -11,3 +11,9 @@ case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) export PATH="$HOME/.local/bin:$PATH" ;;
 esac
+
+# mise shims for non-interactive shells (interactive shells use `mise activate` in .zshrc)
+case ":$PATH:" in
+  *":$HOME/.local/share/mise/shims:"*) ;;
+  *) export PATH="$HOME/.local/share/mise/shims:$PATH" ;;
+esac
