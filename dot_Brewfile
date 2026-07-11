@@ -1,41 +1,77 @@
-oven-sh/bun
+tap "oven-sh/bun", trusted: true
+# Manage your dotfiles across multiple diverse machines, securely
 brew "chezmoi"
+# Dependency manager for Cocoa projects
 brew "cocoapods"
+# Container runtimes on MacOS (and Linux) with minimal setup
 brew "colima"
+# Dart Language SDK, including the VM, dart2js, core libraries, and more
 brew "dart-sdk"
+# Isolated development environments using Docker
 brew "docker-compose"
+# Command-line tool to interact with exercism.io
 brew "exercism"
+# Modern, maintained replacement for ls
 brew "eza"
+# Play, record, convert, and stream select audio and video codecs
 brew "ffmpeg"
+# GitHub command-line tool
 brew "gh"
+# Distributed revision control system
 brew "git"
+# Git extension for versioning large files
 brew "git-lfs"
-brew "goenv"
+# GNU Privacy Guard (OpenPGP)
+brew "gnupg"
+# Database migrations CLI tool
 brew "golang-migrate"
+# Agent multiplexer that lives in your terminal
 brew "herdr"
+# Modern load testing tool, using Go and JavaScript
 brew "k6"
+# Kubernetes command-line interface
 brew "kubernetes-cli"
+# Graphical front-end for GCC's coverage testing tool (gcov)
 brew "lcov"
+# Polyglot runtime manager (asdf rust clone)
 brew "mise"
+# Open source relational database management system
 brew "mysql-client"
+# Ambitious Vim-fork focused on extensibility and agility
 brew "neovim"
-brew "oven-sh/bun/bun"
+# Simplistic interactive filtering tool
 brew "peco"
+# Pinentry for GPG on Mac
 brew "pinentry-mac"
+# Single-file executable tool for creating, reading and uploading PMTiles archives
 brew "pmtiles"
+# PDF rendering library (based on the xpdf-3.0 code base)
 brew "poppler"
+# Protocol buffers (Google's data interchange format)
 brew "protobuf"
-brew "rbenv"
+# Rust toolchain installer
 brew "rustup"
+# Toolkit to help you get started with Spec-Driven Development
 brew "specify"
+# Cross-shell prompt for astronauts
 brew "starship"
+# Extremely fast Python package installer and resolver, written in Rust
 brew "uv"
+# Linter for YAML files
 brew "yamllint"
+# Feature-rich command-line audio/video downloader
 brew "yt-dlp"
+# Fish-like fast/unobtrusive autosuggestions for zsh
 brew "zsh-autosuggestions"
+# Additional completion definitions for zsh
 brew "zsh-completions"
-brew "zsh-git-prompt"
+# Fish shell like syntax highlighting for zsh
 brew "zsh-syntax-highlighting"
+# Incredibly fast JavaScript runtime, bundler, transpiler and package manager - all in one.
+brew "oven-sh/bun/bun", trusted: true
+# OpenAI's coding agent that runs in your terminal
 cask "codex"
+# Terminal emulator that uses platform-native UI and GPU acceleration
 cask "ghostty"
+# Replacement for Docker Desktop
 cask "orbstack"
