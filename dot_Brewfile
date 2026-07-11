@@ -13,6 +13,8 @@ brew "docker-compose"
 brew "exercism"
 # Modern, maintained replacement for ls
 brew "eza"
+# Easiest way to build and release mobile apps
+brew "fastlane"
 # Play, record, convert, and stream select audio and video codecs
 brew "ffmpeg"
 # GitHub command-line tool
