@@ -142,10 +142,10 @@ alias claude-mem='bun "$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scri
 # --------------------------------------------
 if command -v brew &>/dev/null; then
   _update_brewfile() {
-    command brew bundle dump --force --tap --formula --cask --file="$HOME/.Brewfile"
+    command brew bundle dump --force --tap --formula --cask --file="$HOME/.Brewfile" || return
     echo "Brewfile updated"
     if command -v chezmoi &>/dev/null; then
-      chezmoi add "$HOME/.Brewfile"
+      chezmoi add "$HOME/.Brewfile" || return
       echo "Synced to chezmoi"
     fi
   }
@@ -162,13 +162,35 @@ if command -v brew &>/dev/null; then
   }
 
   brewup() {
-    brew update && brew upgrade --greedy && brew autoremove && brew cleanup && brew doctor
-    local repo="$HOME/.local/share/chezmoi"
-    if [[ -n "$(git -C "$repo" status --porcelain)" ]]; then
-      git -C "$repo" add -A && \
-      git -C "$repo" commit -m "chore: update Brewfile after brew upgrade" && \
-      git -C "$repo" push
+    brew update && \
+      brew upgrade --greedy --no-ask && \
+      brew autoremove && \
+      brew cleanup && \
+      brew doctor || return
+
+    _update_brewfile || return
+
+    if ! command -v chezmoi &>/dev/null; then
+      echo "chezmoi not found; skipping Brewfile staging" >&2
+      return
     fi
+
+    local brewfile_source
+    brewfile_source="$(chezmoi source-path "$HOME/.Brewfile")" || return
+
+    chezmoi git -- add -- "$brewfile_source" || return
+
+    local diff_status
+    chezmoi git -- diff --cached --quiet -- "$brewfile_source"
+    diff_status=$?
+    case "$diff_status" in
+      0) ;;
+      1)
+        echo "Brewfile staged. Review with: chezmoi git -- diff --cached -- dot_Brewfile"
+        echo "Commit and push manually after review."
+        ;;
+      *) return "$diff_status" ;;
+    esac
   }
 fi
 
