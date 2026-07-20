@@ -33,6 +33,7 @@ export GOPATH="$HOME/go"
 # PATH
 # --------------------------------------------
 path=(
+  "$HOME/.local/share/codex-desktop/bin"
   "$PNPM_HOME"
   "$HOME/.bun/bin"
   "$GOPATH/bin"
@@ -136,6 +137,9 @@ if command -v nvim &>/dev/null; then
 fi
 
 alias claude-mem='bun "$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/worker-service.cjs"'
+
+# superpowers is disabled at user scope; claude-sp opts a single session in
+alias claude-sp='claude --plugin-dir "$(ls -d "$HOME/.claude/plugins/cache/claude-plugins-official/superpowers/"*/ | sort -V | tail -1)"'
 
 # --------------------------------------------
 # Homebrew Bundle Sync
