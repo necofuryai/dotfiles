@@ -38,6 +38,7 @@ path=(
   "$HOME/.bun/bin"
   "$GOPATH/bin"
   /opt/homebrew/opt/mysql-client/bin
+  /opt/homebrew/opt/rustup/bin
   $path
 )
 
