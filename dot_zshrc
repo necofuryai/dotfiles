@@ -137,9 +137,6 @@ if command -v nvim &>/dev/null; then
   alias vi='nvim'
 fi
 
-# superpowers is disabled at user scope; claude-sp opts a single session in
-alias claude-sp='claude --plugin-dir "$(ls -d "$HOME/.claude/plugins/cache/claude-plugins-official/superpowers/"*/ | sort -V | tail -1)"'
-
 # --------------------------------------------
 # Homebrew Bundle Sync
 # --------------------------------------------
