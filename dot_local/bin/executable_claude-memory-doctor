@@ -69,6 +69,36 @@ function projectRootFor(cwd) {
   return topReal;
 }
 
+const stableStoreRoot = path.join(configRoot, 'project-memories');
+
+// Mirrors the private stable-store convention: remote URL → <host>/<org>/<repo>,
+// no remote → local/<basename>. Returns null when the repo identity is unclear.
+function expectedStableDir(root) {
+  let remote = git(root, ['remote', 'get-url', 'origin']);
+  if (!remote) {
+    const first = git(root, ['remote']).split('\n').filter(Boolean)[0];
+    if (first) remote = git(root, ['remote', 'get-url', first]);
+  }
+  if (!remote) return path.join(stableStoreRoot, 'local', path.basename(root));
+  let host;
+  let repoPath;
+  try {
+    const url = new URL(remote);
+    host = url.hostname;
+    repoPath = url.pathname;
+  } catch {
+    const scp = remote.match(/^(?:[^@]+@)?([^:/]+):(.+)$/);
+    if (scp) {
+      host = scp[1];
+      repoPath = scp[2];
+    }
+  }
+  if (!host || !repoPath) return null;
+  repoPath = repoPath.replace(/^\/+/, '').replace(/\.git$/, '').replace(/\/+$/, '');
+  if (!repoPath) return null;
+  return path.join(stableStoreRoot, host, repoPath);
+}
+
 // Matches Claude Code v2.1.220's path slug function, including the >200-char suffix.
 function slugify(value) {
   const sanitized = value.replace(/[^a-zA-Z0-9]/g, '-');
@@ -260,6 +290,20 @@ function inspectProject(inputPath) {
       message: 'autoMemoryDirectory は絶対パスまたは ~/ で始める必要があります',
     });
   }
+  // A stable store that exists but is not wired up (fresh clone, lost
+  // settings.local.json) silently falls back to the path-keyed default store.
+  // Skip when the setting exists but trust is pending: untrusted-override
+  // already reports that cause.
+  if (enabled && !custom && !settings.configuredWithoutTrust) {
+    const expected = expectedStableDir(root);
+    if (expected && mdFiles(expected).length) {
+      issues.push({
+        code: 'unconfigured-stable-store',
+        message: `安定ストア ${expected} が存在しますが autoMemoryDirectory が未設定です (settings.local.json の消失や再クローン?)`,
+      });
+    }
+  }
+
   const memoryDir = customIsAbsolute ? expandHome(settings.directory.value) : defaultDir;
   const inspected = enabled ? inspectIndex(memoryDir, issues) : { files: [], links: [] };
 
