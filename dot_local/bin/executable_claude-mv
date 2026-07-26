@@ -1,0 +1,768 @@
+#!/usr/bin/env node
+'use strict';
+
+// claude-mv — プロジェクトルートを移動し、パス依存の Claude Code 状態を追従させる。
+//
+// Claude Code 2.1.220 では、次の二つのキーが同じとは限らない。
+//   - auto memory: Git repository root
+//   - transcript/history/session state: session cwd
+//
+// このコマンドは Git 管理下では Git root の移動だけを受け付ける。そのうえで、
+// root 配下の既知の session cwd をすべて移し、default memory は Git-root slug 間で
+// 統合する。autoMemoryDirectory が設定されている場合、その stable store には触れない。
+//
+//   claude-mv [--dry-run] [-y] <src-root> <dst-root>
+//   claude-mv --adopt [--dry-run] [-y] <old-root> [<new-root>]
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
+const HOME = os.homedir();
+const CFG = process.env.CLAUDE_CONFIG_DIR || path.join(HOME, '.claude');
+const PROJECTS = path.join(CFG, 'projects');
+// CLAUDE_CONFIG_DIR を設定すると Claude Code 本体も .claude.json をその配下に置く。
+const CLAUDE_JSON = process.env.CLAUDE_CONFIG_DIR
+  ? path.join(CFG, '.claude.json')
+  : path.join(HOME, '.claude.json');
+const HISTORY = path.join(CFG, 'history.jsonl');
+const SESSION_DATA = path.join(CFG, 'session-data');
+const COSTS = path.join(CFG, 'metrics', 'costs.jsonl');
+const SUPPORTED_CLAUDE_VERSION = '2.1.220';
+const PRIVATE_DIR_MODE = 0o700;
+const PRIVATE_FILE_MODE = 0o600;
+
+// Claude Code v2.1.220 の project slug と同じ規則。
+function slugify(p) {
+  const t = p.replace(/[^a-zA-Z0-9]/g, '-');
+  if (t.length <= 200) return t;
+  let h = 0;
+  for (let i = 0; i < p.length; i++) h = ((h << 5) - h + p.charCodeAt(i)) | 0;
+  return `${t.slice(0, 200)}-${Math.abs(h).toString(36)}`;
+}
+
+function die(msg) {
+  console.error(`claude-mv: ${msg}`);
+  process.exit(1);
+}
+
+function readJson(file, fallback = {}) {
+  if (!fs.existsSync(file)) return fallback;
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    die(`${file} を JSON として読めません: ${error.message}`);
+  }
+}
+
+function atomicWrite(file, content, mode = null) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.claude-mv-tmp-${process.pid}`;
+  if (mode === null) {
+    fs.writeFileSync(tmp, content);
+  } else {
+    fs.writeFileSync(tmp, content, { mode });
+    fs.chmodSync(tmp, mode);
+  }
+  if (mode === null && fs.existsSync(file)) fs.chmodSync(tmp, fs.statSync(file).mode);
+  fs.renameSync(tmp, file);
+}
+
+function ensurePrivateDir(dir) {
+  fs.mkdirSync(dir, { recursive: true, mode: PRIVATE_DIR_MODE });
+  fs.chmodSync(dir, PRIVATE_DIR_MODE);
+}
+
+function copyPrivateFile(from, to) {
+  const fd = fs.openSync(to, 'wx', PRIVATE_FILE_MODE);
+  fs.closeSync(fd);
+  fs.copyFileSync(from, to);
+  fs.chmodSync(to, PRIVATE_FILE_MODE);
+}
+
+function isInside(candidate, root) {
+  return candidate === root || candidate.startsWith(root + path.sep);
+}
+
+function mapRootPrefix(candidate, oldRoot, newRoot) {
+  if (!isInside(candidate, oldRoot)) return candidate;
+  if (candidate === oldRoot) return newRoot;
+  return path.join(newRoot, path.relative(oldRoot, candidate));
+}
+
+function gitOutput(dir, args) {
+  try {
+    return execFileSync('git', ['-C', dir, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function installedClaudeVersion() {
+  try {
+    const output = execFileSync('claude', ['--version'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return output.match(/\b(\d+\.\d+\.\d+)\b/)?.[1] || '';
+  } catch {
+    return '';
+  }
+}
+
+// Linked worktree の auto-memory は checkout root ではなく common repository root
+// を使う。session cwd と memory root をここで明示的に分離する。
+function gitIdentity(dir) {
+  const top = gitOutput(dir, ['rev-parse', '--show-toplevel']);
+  if (!top) return null;
+  const checkoutRoot = fs.realpathSync(top);
+  const worktreeCount = gitOutput(dir, ['worktree', 'list', '--porcelain'])
+    .split('\n')
+    .filter((line) => line.startsWith('worktree ')).length;
+  const gitDir = gitOutput(dir, ['rev-parse', '--path-format=absolute', '--git-dir']);
+  const commonDir = gitOutput(dir, [
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-common-dir',
+  ]);
+  if (!gitDir || !commonDir) {
+    return { checkoutRoot, memoryRoot: checkoutRoot, linkedWorktree: false, worktreeCount };
+  }
+
+  const gitDirReal = fs.realpathSync(gitDir);
+  const commonDirReal = fs.realpathSync(commonDir);
+  const linkedPrefix = `${commonDirReal}${path.sep}worktrees${path.sep}`;
+  const linkedWorktree =
+    gitDirReal !== commonDirReal &&
+    gitDirReal.startsWith(linkedPrefix) &&
+    path.basename(commonDirReal) === '.git';
+  return {
+    checkoutRoot,
+    memoryRoot: linkedWorktree ? fs.realpathSync(path.dirname(commonDirReal)) : checkoutRoot,
+    linkedWorktree,
+    worktreeCount,
+  };
+}
+
+// 移動先が未作成でも、実在する祖先の symlink を解決する。
+function resolveThroughSymlinks(p) {
+  const tail = [];
+  let cur = p;
+  while (!fs.existsSync(cur)) {
+    tail.unshift(path.basename(cur));
+    const up = path.dirname(cur);
+    if (up === cur) return p;
+    cur = up;
+  }
+  return path.join(fs.realpathSync(cur), ...tail);
+}
+
+function readPrefix(file, maxBytes = 512 * 1024) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const size = Math.min(fs.fstatSync(fd).size, maxBytes);
+    const buffer = Buffer.alloc(size);
+    fs.readSync(fd, buffer, 0, size, 0);
+    return buffer.toString('utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// transcript の冒頭から cwd を拾う。history/config に載らない子 cwd の救済用。
+function inferCwdFromStateDir(stateDir) {
+  let files;
+  try {
+    files = fs
+      .readdirSync(stateDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
+      .map((entry) => path.join(stateDir, entry.name))
+      .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)
+      .slice(0, 8);
+  } catch {
+    return null;
+  }
+
+  for (const file of files) {
+    let text;
+    try {
+      text = readPrefix(file);
+    } catch {
+      continue;
+    }
+    const match = text.match(/"cwd"\s*:\s*("(?:\\.|[^"\\])*")/);
+    if (!match) continue;
+    try {
+      const cwd = JSON.parse(match[1]);
+      if (typeof cwd === 'string' && path.isAbsolute(cwd)) return path.normalize(cwd);
+    } catch {
+      // 次の transcript を試す。
+    }
+  }
+  return null;
+}
+
+function uniquePath(wanted) {
+  if (!fs.existsSync(wanted)) return wanted;
+  const ext = path.extname(wanted);
+  const stem = ext ? wanted.slice(0, -ext.length) : wanted;
+  for (let i = 2; ; i++) {
+    const candidate = `${stem}-${i}${ext}`;
+    if (!fs.existsSync(candidate)) return candidate;
+  }
+}
+
+function move(from, to) {
+  fs.mkdirSync(path.dirname(to), { recursive: true });
+  try {
+    fs.renameSync(from, to);
+  } catch (error) {
+    if (error.code !== 'EXDEV') throw error;
+    execFileSync('/bin/mv', [from, to]);
+  }
+}
+
+const argv = process.argv.slice(2);
+const dryRun = argv.includes('--dry-run');
+const assumeYes = argv.includes('-y') || argv.includes('--yes');
+const adopt = argv.includes('--adopt');
+const allowUnsupportedVersion = argv.includes('--allow-unsupported-version');
+const positional = argv.filter((arg) => !arg.startsWith('-'));
+if (adopt ? positional.length < 1 || positional.length > 2 : positional.length !== 2) {
+  console.error('usage: claude-mv [--dry-run] [-y] <src-root> <dst-root>');
+  console.error(
+    '       claude-mv --adopt [--dry-run] [-y] [--allow-unsupported-version] ' +
+      '<旧root> [<新root>]  # 素の mv 後に状態を追従',
+  );
+  process.exit(2);
+}
+
+const claudeVersion = installedClaudeVersion();
+if (claudeVersion !== SUPPORTED_CLAUDE_VERSION) {
+  const detected = claudeVersion || '検出不能';
+  const message =
+    `Claude Code ${detected} は未検証です（対応版: ${SUPPORTED_CLAUDE_VERSION}）。` +
+    '内部state形式が変わっている可能性があります';
+  if (!dryRun && !allowUnsupportedVersion) {
+    die(
+      `${message}。先に --dry-run で確認し、` +
+        '続行する場合だけ --allow-unsupported-version を付けてください',
+    );
+  }
+  console.warn(`claude-mv: 警告: ${message}`);
+}
+
+let src;
+let dst;
+let projectGitIdentity = null;
+
+if (adopt) {
+  src = path.resolve(positional[0]).replace(/\/+$/, '');
+  dst = fs.realpathSync(path.resolve(positional[1] ?? process.cwd()));
+  if (fs.existsSync(src)) {
+    die(`${src} はまだ存在します。通常の移動なら --adopt を外してください`);
+  }
+  if (!fs.statSync(dst).isDirectory()) die(`${dst} はディレクトリではありません`);
+  projectGitIdentity = gitIdentity(dst);
+  if (projectGitIdentity && projectGitIdentity.checkoutRoot !== dst) {
+    die(
+      `${dst} は Git checkout root ではありません (${projectGitIdentity.checkoutRoot})。` +
+        'session cwd と auto-memory root を混同しないため、repository root を指定してください',
+    );
+  }
+} else {
+  src = fs.realpathSync(path.resolve(positional[0]));
+  dst = resolveThroughSymlinks(path.resolve(positional[1]));
+  if (!fs.statSync(src).isDirectory()) die(`${src} はディレクトリではありません`);
+  if (fs.existsSync(dst)) die(`${dst} は既に存在します`);
+  if (dst.startsWith(src + path.sep)) die('移動先が移動元の内側です');
+  projectGitIdentity = gitIdentity(src);
+  if (projectGitIdentity && projectGitIdentity.checkoutRoot !== src) {
+    die(
+      `${src} は Git checkout root ではありません (${projectGitIdentity.checkoutRoot})。` +
+        'repository root 全体を指定してください',
+    );
+  }
+  if (projectGitIdentity?.linkedWorktree) {
+    die(
+      `${src} は linked worktree です。Git metadata を壊さないよう ` +
+        `git worktree move ${src} ${dst} を実行してから claude-mv --adopt ${src} ${dst} を使ってください`,
+    );
+  }
+  if (projectGitIdentity && projectGitIdentity.worktreeCount > 1) {
+    die(
+      `${src} には linked worktree が ${projectGitIdentity.worktreeCount - 1} 件あります。` +
+        'common Git metadata の絶対パスを壊さないよう、worktree を先に整理してから移動してください',
+    );
+  }
+}
+
+// Main checkout/non-Git project の memory root は project root と一緒に動く。
+// `git worktree move` 後の --adopt では common repository root は動いていないため、
+// old/new memory root は同じ。移すのは linked worktree の session cwd state だけ。
+const oldMemoryRoot =
+  adopt && projectGitIdentity?.linkedWorktree ? projectGitIdentity.memoryRoot : src;
+const newMemoryRoot =
+  adopt && projectGitIdentity?.linkedWorktree ? projectGitIdentity.memoryRoot : dst;
+const oldMemorySlug = slugify(oldMemoryRoot);
+const newMemorySlug = slugify(newMemoryRoot);
+
+const claudeJson = readJson(CLAUDE_JSON);
+const historyLines = fs.existsSync(HISTORY)
+  ? fs.readFileSync(HISTORY, 'utf8').split('\n')
+  : [];
+const costsLines = fs.existsSync(COSTS) ? fs.readFileSync(COSTS, 'utf8').split('\n') : [];
+
+// Root 配下で実際に session cwd として使われたパスを集める。
+const oldCwds = new Set([src]);
+for (const projectPath of Object.keys(claudeJson.projects || {})) {
+  if (isInside(projectPath, src)) oldCwds.add(path.normalize(projectPath));
+}
+for (const line of historyLines) {
+  try {
+    const projectPath = JSON.parse(line).project;
+    if (typeof projectPath === 'string' && isInside(projectPath, src)) {
+      oldCwds.add(path.normalize(projectPath));
+    }
+  } catch {
+    // 壊れた既存行は変更せず保持する。
+  }
+}
+
+const sessionFiles = [];
+if (fs.existsSync(SESSION_DATA)) {
+  for (const name of fs.readdirSync(SESSION_DATA)) {
+    const file = path.join(SESSION_DATA, name);
+    let content;
+    try {
+      if (!fs.statSync(file).isFile()) continue;
+      content = fs.readFileSync(file, 'utf8');
+    } catch {
+      continue;
+    }
+    let changed = false;
+    const next = content.replace(/Worktree:\*\*\s+([^\r\n]+)/g, (whole, worktree) => {
+      const trimmed = worktree.trimEnd();
+      if (!path.isAbsolute(trimmed) || !isInside(trimmed, src)) return whole;
+      oldCwds.add(path.normalize(trimmed));
+      changed = true;
+      return whole.replace(trimmed, mapRootPrefix(trimmed, src, dst));
+    });
+    if (changed) sessionFiles.push({ file, content, next });
+  }
+}
+
+// config/history に載らないが transcript が残っている session cwd も拾う。
+if (fs.existsSync(PROJECTS)) {
+  for (const entry of fs.readdirSync(PROJECTS, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const inferred = inferCwdFromStateDir(path.join(PROJECTS, entry.name));
+    if (inferred && isInside(inferred, src)) oldCwds.add(inferred);
+  }
+}
+
+const mappings = [...oldCwds]
+  .sort((a, b) => a.localeCompare(b))
+  .map((oldCwd) => ({
+    oldCwd,
+    newCwd: mapRootPrefix(oldCwd, src, dst),
+    oldSlug: slugify(oldCwd),
+    newSlug: slugify(mapRootPrefix(oldCwd, src, dst)),
+  }));
+
+// sanitize collision は上書き事故になるため、実行前に全件止める。
+for (const side of ['old', 'new']) {
+  const seen = new Map();
+  for (const mapping of mappings) {
+    const slug = mapping[`${side}Slug`];
+    const cwd = mapping[`${side}Cwd`];
+    if (seen.has(slug) && seen.get(slug) !== cwd) {
+      die(`${side} session cwd ${seen.get(slug)} と ${cwd} の slug が衝突します (${slug})`);
+    }
+    seen.set(slug, cwd);
+  }
+}
+for (const [existingPath] of Object.entries(claudeJson.projects || {})) {
+  if (isInside(existingPath, src) || isInside(existingPath, dst)) continue;
+  const conflict = mappings.find((mapping) => mapping.newSlug === slugify(existingPath));
+  if (conflict) {
+    die(
+      `移動先 ${conflict.newCwd} の slug が既存 project ${existingPath} と衝突します ` +
+        `(${conflict.newSlug})`,
+    );
+  }
+}
+
+const stateMappings = mappings.filter(
+  (mapping) =>
+    mapping.oldSlug !== mapping.newSlug &&
+    fs.existsSync(path.join(PROJECTS, mapping.oldSlug)),
+);
+for (const mapping of stateMappings) {
+  const targetStateDir = path.join(PROJECTS, mapping.newSlug);
+  if (!fs.existsSync(targetStateDir)) continue;
+  const inferredTargetCwd = inferCwdFromStateDir(targetStateDir);
+  if (inferredTargetCwd && inferredTargetCwd !== mapping.newCwd) {
+    die(
+      `移動先 bucket projects/${mapping.newSlug} は別の cwd ${inferredTargetCwd} に属します。` +
+        `${mapping.newCwd} のstateとはマージしません`,
+    );
+  }
+}
+const hasAnyOldEvidence =
+  stateMappings.length > 0 ||
+  mappings.some((mapping) =>
+    Object.prototype.hasOwnProperty.call(claudeJson.projects || {}, mapping.oldCwd),
+  ) ||
+  historyLines.some((line) => {
+    try {
+      const p = JSON.parse(line).project;
+      return typeof p === 'string' && isInside(p, src);
+    } catch {
+      return false;
+    }
+  });
+if (adopt && !hasAnyOldEvidence) {
+  die(`旧 root ${src} に紐づく projects/history/.claude.json が見つかりません。綴りを確認してください`);
+}
+
+const historyHits = historyLines.filter((line) => {
+  try {
+    const projectPath = JSON.parse(line).project;
+    return typeof projectPath === 'string' && isInside(projectPath, src);
+  } catch {
+    return false;
+  }
+}).length;
+
+const slugRewrites = new Map();
+for (const mapping of mappings) {
+  if (mapping.oldSlug !== mapping.newSlug) slugRewrites.set(mapping.oldSlug, mapping.newSlug);
+}
+const costsHits = costsLines.filter((line) =>
+  [...slugRewrites.keys()].some((oldSlug) => line.includes(`/projects/${oldSlug}/`)),
+).length;
+const configHits = Object.keys(claudeJson.projects || {}).filter((p) => isInside(p, src)).length;
+
+function resolveConfiguredAutoMemory(projectRoot) {
+  let configured;
+  const sources = [
+    path.join(CFG, 'settings.json'),
+    path.join(projectRoot, '.claude', 'settings.json'),
+    path.join(projectRoot, '.claude', 'settings.local.json'),
+  ];
+  for (const file of sources) {
+    if (!fs.existsSync(file)) continue;
+    const settings = readJson(file);
+    if (Object.prototype.hasOwnProperty.call(settings, 'autoMemoryDirectory')) {
+      configured = { file, value: settings.autoMemoryDirectory };
+    }
+  }
+  if (!configured || typeof configured.value !== 'string' || !configured.value) return null;
+  const expanded = configured.value.startsWith('~/')
+    ? path.join(HOME, configured.value.slice(2))
+    : configured.value;
+  return { ...configured, expanded };
+}
+
+const settingsRoot = adopt ? dst : src;
+const customMemory = resolveConfiguredAutoMemory(settingsRoot);
+
+console.log('');
+console.log(
+  `  project root   ${adopt ? `${src} (移動済み)` : src}\n` +
+    `                 → ${dst}${adopt ? '  ※directory は動かしません' : ''}`,
+);
+console.log(
+  `  auto memory    default: projects/${oldMemorySlug}/memory\n` +
+    `                 → projects/${newMemorySlug}/memory (Git/project root key)`,
+);
+if (customMemory) {
+  console.log(
+    `  stable memory  ${customMemory.expanded}\n` +
+      `                 (${path.relative(settingsRoot, customMemory.file) || customMemory.file}; 変更しません)`,
+  );
+}
+console.log(`  session state  ${mappings.length} cwd / ${stateMappings.length} state director${stateMappings.length === 1 ? 'y' : 'ies'}`);
+console.log(`  history.jsonl  ${historyHits} 行`);
+console.log(`  session-data   ${sessionFiles.length} ファイル`);
+console.log(`  metrics/costs  ${costsHits} 行`);
+console.log(`  .claude.json   ${configHits} project key`);
+console.log('');
+
+if (dryRun) process.exit(0);
+
+if (!assumeYes) {
+  process.stdout.write('実行しますか? [y/N] ');
+  const buffer = Buffer.alloc(64);
+  let read = 0;
+  try {
+    read = fs.readSync(0, buffer, 0, 64, null);
+  } catch {
+    die('確認できません。非対話で実行するなら -y を付けてください');
+  }
+  if (!/^y(es)?$/i.test(buffer.subarray(0, read).toString().trim())) {
+    console.log('中止しました。');
+    process.exit(0);
+  }
+}
+
+// 変更する metadata と memory merge 元を退避する。project/transcript 本体は rename で保持する。
+const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+const backupRoot = path.join(CFG, 'claude-mv-backups');
+const backupDir = path.join(backupRoot, stamp);
+ensurePrivateDir(backupRoot);
+ensurePrivateDir(backupDir);
+for (const file of [CLAUDE_JSON, HISTORY, COSTS]) {
+  if (fs.existsSync(file)) copyPrivateFile(file, path.join(backupDir, path.basename(file)));
+}
+if (sessionFiles.length) {
+  const sessionBackup = path.join(backupDir, 'session-data');
+  ensurePrivateDir(sessionBackup);
+  for (const { file } of sessionFiles) {
+    copyPrivateFile(file, path.join(sessionBackup, path.basename(file)));
+  }
+}
+atomicWrite(
+  path.join(backupDir, 'move-manifest.json'),
+  JSON.stringify(
+    {
+      createdAt: new Date().toISOString(),
+      adopt,
+      src,
+      dst,
+      oldMemoryRoot,
+      newMemoryRoot,
+      customAutoMemoryDirectory: customMemory?.expanded || null,
+      cwdMappings: mappings,
+    },
+    null,
+    2,
+  ) + '\n',
+  PRIVATE_FILE_MODE,
+);
+console.log(`バックアップ: ${backupDir}`);
+
+// 同名 topic が異なる場合は両方残し、source MEMORY.md のリンクも改名先へ直す。
+function mergeMemory(from, to) {
+  fs.mkdirSync(to, { recursive: true });
+  const suffix = oldMemorySlug.slice(-24);
+  const renamedTargets = new Map();
+  let added = 0;
+  let same = 0;
+  let renamed = 0;
+
+  for (const name of fs.readdirSync(from)) {
+    if (name === 'MEMORY.md') continue;
+    const source = path.join(from, name);
+    const target = path.join(to, name);
+    if (!fs.existsSync(target)) {
+      move(source, target);
+      added++;
+      continue;
+    }
+
+    const sourceStat = fs.statSync(source);
+    const targetStat = fs.statSync(target);
+    if (
+      sourceStat.isFile() &&
+      targetStat.isFile() &&
+      fs.readFileSync(source).equals(fs.readFileSync(target))
+    ) {
+      // duplicate は source archive に残す。active store の同一内容は target を使う。
+      same++;
+      continue;
+    }
+
+    const ext = path.extname(name);
+    const stem = ext ? name.slice(0, -ext.length) : name;
+    const renamedPath = uniquePath(path.join(to, `${stem}.from-${suffix}${ext}`));
+    move(source, renamedPath);
+    renamedTargets.set(name, path.basename(renamedPath));
+    renamed++;
+  }
+
+  const sourceIndex = path.join(from, 'MEMORY.md');
+  const targetIndex = path.join(to, 'MEMORY.md');
+  const rewriteLink = (line) =>
+    line.replace(/\]\(([^)]+)\)/g, (whole, target) => {
+      const renamedTarget = renamedTargets.get(target);
+      return renamedTarget ? whole.replace(`(${target})`, `(${renamedTarget})`) : whole;
+    });
+  const sourceLines = fs.existsSync(sourceIndex)
+    ? fs.readFileSync(sourceIndex, 'utf8').split('\n').map(rewriteLink)
+    : [];
+  const destinationLines = fs.existsSync(targetIndex)
+    ? fs.readFileSync(targetIndex, 'utf8').split('\n')
+    : [];
+  const linkTarget = (line) => (line.match(/\]\(([^)]+)\)/) || [])[1];
+  let indexAdditions = 0;
+
+  if (!fs.existsSync(targetIndex) && sourceLines.some((line) => line.length > 0)) {
+    atomicWrite(targetIndex, sourceLines.join('\n').replace(/\n*$/, '\n'));
+    indexAdditions = sourceLines.map(linkTarget).filter(Boolean).length;
+  } else {
+    const known = new Set(destinationLines.map(linkTarget).filter(Boolean));
+    const extra = sourceLines.filter((line) => {
+      const target = linkTarget(line);
+      if (!target || known.has(target)) return false;
+      known.add(target);
+      return true;
+    });
+    if (extra.length) {
+      const base = destinationLines.join('\n').replace(/\n*$/, '');
+      atomicWrite(targetIndex, `${base}${base ? '\n' : ''}${extra.join('\n')}\n`);
+      indexAdditions = extra.length;
+    }
+  }
+
+  // source の index と duplicate は stale project bucket に残さず、backup 内へ移す。
+  // これにより削除せずに active store を一意にできる。
+  const mergedMemoryDir = path.join(backupDir, 'merged-memory');
+  ensurePrivateDir(mergedMemoryDir);
+  const archive = uniquePath(path.join(mergedMemoryDir, path.basename(from)));
+  move(from, archive);
+  console.log(
+    `  memory: ${added} 追加 / ${same} 同一(backup保持) / ${renamed} 別名保存 / ` +
+      `索引 ${indexAdditions} 行追加`,
+  );
+}
+
+function mergeStateDir(from, to, mapping) {
+  if (!fs.existsSync(to)) {
+    move(from, to);
+    console.log(`移動: projects/${mapping.oldSlug} → projects/${mapping.newSlug}`);
+    return;
+  }
+
+  for (const entry of fs.readdirSync(from)) {
+    const source = path.join(from, entry);
+    const target = path.join(to, entry);
+    if (!fs.existsSync(target)) {
+      move(source, target);
+      continue;
+    }
+    if (
+      entry === 'memory' &&
+      fs.statSync(source).isDirectory() &&
+      fs.statSync(target).isDirectory()
+    ) {
+      mergeMemory(source, target);
+      if (mapping.oldCwd !== oldMemoryRoot) {
+        console.log(`  注意: ${mapping.oldCwd} の legacy child memory を保全マージしました`);
+      }
+      continue;
+    }
+    const alternate = uniquePath(path.join(to, `${entry}.from-${mapping.oldSlug.slice(-24)}`));
+    console.log(`  衝突: ${entry} → ${path.basename(alternate)} として保持`);
+    move(source, alternate);
+  }
+  fs.rmdirSync(from);
+  console.log(`マージ: projects/${mapping.oldSlug} → projects/${mapping.newSlug}`);
+}
+
+// 1. project root 本体。
+if (adopt) {
+  console.log(`取り込み: ${dst} (directory は移動済み)`);
+} else {
+  fs.mkdirSync(path.dirname(dst), { recursive: true });
+  move(src, dst);
+  console.log(`移動: ${src} → ${dst}`);
+}
+
+// 2. session cwd ごとの state。root mapping の memory/ が default auto-memory。
+for (const mapping of stateMappings.sort((a, b) => b.oldCwd.length - a.oldCwd.length)) {
+  mergeStateDir(
+    path.join(PROJECTS, mapping.oldSlug),
+    path.join(PROJECTS, mapping.newSlug),
+    mapping,
+  );
+}
+
+// 3. 移動した state 内の project slug symlink を張り替える。
+let relinked = 0;
+for (const mapping of stateMappings) {
+  const root = path.join(PROJECTS, mapping.newSlug);
+  if (!fs.existsSync(root)) continue;
+  const stack = [root];
+  while (stack.length) {
+    const dir = stack.pop();
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const entryPath = path.join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        const target = fs.readlinkSync(entryPath);
+        const oldSegment = `/projects/${mapping.oldSlug}/`;
+        if (!target.includes(oldSegment)) continue;
+        fs.unlinkSync(entryPath);
+        fs.symlinkSync(
+          target.split(oldSegment).join(`/projects/${mapping.newSlug}/`),
+          entryPath,
+        );
+        relinked++;
+      } else if (entry.isDirectory()) {
+        stack.push(entryPath);
+      }
+    }
+  }
+}
+if (relinked) console.log(`シンボリックリンク ${relinked} 件を張り替え`);
+
+// 4. ~/.claude.json — root と子 cwd の project key を全て付け替える。
+if (configHits) {
+  const projects = claudeJson.projects || {};
+  for (const oldPath of Object.keys(projects).filter((p) => isInside(p, src))) {
+    const newPath = mapRootPrefix(oldPath, src, dst);
+    if (projects[newPath] === undefined) {
+      projects[newPath] = projects[oldPath];
+    } else {
+      console.log(`.claude.json: ${newPath} の既存設定を維持`);
+    }
+    if (newPath !== oldPath) delete projects[oldPath];
+  }
+  claudeJson.projects = projects;
+  atomicWrite(CLAUDE_JSON, JSON.stringify(claudeJson, null, 2) + '\n');
+  console.log(`.claude.json: ${configHits} project key を追従`);
+}
+
+// 5. history.jsonl — root 配下の project field。
+if (historyHits) {
+  const output = historyLines.map((line) => {
+    try {
+      const record = JSON.parse(line);
+      if (typeof record.project !== 'string' || !isInside(record.project, src)) return line;
+      record.project = mapRootPrefix(record.project, src, dst);
+      return JSON.stringify(record);
+    } catch {
+      return line;
+    }
+  });
+  atomicWrite(HISTORY, output.join('\n'));
+  console.log(`history.jsonl: ${historyHits} 行を書き換え`);
+}
+
+// 6. session-data — root 配下の **Worktree:** path。
+for (const { file, next } of sessionFiles) atomicWrite(file, next);
+if (sessionFiles.length) console.log(`session-data: ${sessionFiles.length} ファイルを書き換え`);
+
+// 7. metrics/costs.jsonl — known session cwd slug の transcript_path。
+if (costsHits) {
+  const output = costsLines.map((line) => {
+    let next = line;
+    for (const [oldSlug, newSlug] of slugRewrites) {
+      next = next.split(`/projects/${oldSlug}/`).join(`/projects/${newSlug}/`);
+    }
+    return next;
+  });
+  atomicWrite(COSTS, output.join('\n'));
+  console.log(`metrics/costs.jsonl: ${costsHits} 行を書き換え`);
+}
+
+if (customMemory) {
+  console.log(`stable memory: ${customMemory.expanded} は path-independent のため変更なし`);
+}
+
+console.log('\n完了。');

@@ -1,0 +1,428 @@
+#!/usr/bin/env node
+'use strict';
+
+// Audit Claude Code auto-memory without printing memory contents or settings values.
+// Claude Code v2.1.220 derives auto-memory from the Git repository root, while
+// transcript storage remains tied to the session cwd. Keep those identities separate.
+
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
+const userHome = os.homedir();
+const configRoot = process.env.CLAUDE_CONFIG_DIR || path.join(userHome, '.claude');
+const projectsRoot = path.join(configRoot, 'projects');
+const claudeJsonPath = process.env.CLAUDE_CONFIG_DIR
+  ? path.join(configRoot, '.claude.json')
+  : path.join(userHome, '.claude.json');
+const historyPath = path.join(configRoot, 'history.jsonl');
+
+function readJson(file, fallback = {}) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
+function realpathIfPossible(value) {
+  try {
+    return fs.realpathSync(value);
+  } catch {
+    return path.resolve(value);
+  }
+}
+
+function git(cwd, args) {
+  try {
+    return execFileSync('git', ['-C', cwd, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function projectRootFor(cwd) {
+  const physicalCwd = realpathIfPossible(cwd);
+  const top = git(physicalCwd, ['rev-parse', '--show-toplevel']);
+  if (!top) return physicalCwd;
+
+  const topReal = realpathIfPossible(top);
+  const gitDir = git(physicalCwd, ['rev-parse', '--path-format=absolute', '--git-dir']);
+  const commonDir = git(physicalCwd, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  if (!gitDir || !commonDir) return topReal;
+
+  const gitDirReal = realpathIfPossible(gitDir);
+  const commonReal = realpathIfPossible(commonDir);
+  const linkedWorktreePrefix = `${commonReal}${path.sep}worktrees${path.sep}`;
+  if (
+    gitDirReal !== commonReal &&
+    gitDirReal.startsWith(linkedWorktreePrefix) &&
+    path.basename(commonReal) === '.git'
+  ) {
+    return realpathIfPossible(path.dirname(commonReal));
+  }
+  return topReal;
+}
+
+// Matches Claude Code v2.1.220's path slug function, including the >200-char suffix.
+function slugify(value) {
+  const sanitized = value.replace(/[^a-zA-Z0-9]/g, '-');
+  if (sanitized.length <= 200) return sanitized;
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+  }
+  return `${sanitized.slice(0, 200)}-${Math.abs(hash).toString(36)}`;
+}
+
+function expandHome(value) {
+  if (value === '~') return userHome;
+  if (value.startsWith('~/')) return path.join(userHome, value.slice(2));
+  return path.resolve(value);
+}
+
+function mdFiles(dir) {
+  try {
+    return fs.readdirSync(dir).filter((name) => name.endsWith('.md')).sort();
+  } catch {
+    return [];
+  }
+}
+
+function sha256(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+function sameFile(a, b) {
+  try {
+    return fs.statSync(a).size === fs.statSync(b).size && sha256(a) === sha256(b);
+  } catch {
+    return false;
+  }
+}
+
+let knownBucketPathsCache;
+function knownBucketPaths() {
+  if (knownBucketPathsCache) return knownBucketPathsCache;
+  const result = new Map();
+  const add = (projectPath) => {
+    if (typeof projectPath !== "string" || !projectPath.startsWith("/")) return;
+    const bucket = slugify(projectPath);
+    if (!result.has(bucket)) result.set(bucket, new Set());
+    result.get(bucket).add(projectPath);
+  };
+
+  const config = readJson(claudeJsonPath);
+  for (const projectPath of Object.keys(config.projects || {})) add(projectPath);
+  try {
+    for (const line of fs.readFileSync(historyPath, "utf8").split("\n")) {
+      try {
+        add(JSON.parse(line).project);
+      } catch {
+        // Preserve audit availability even if one history line is malformed.
+      }
+    }
+  } catch {
+    // history.jsonl is optional.
+  }
+  knownBucketPathsCache = result;
+  return result;
+}
+
+function projectTrust(root) {
+  const config = readJson(claudeJsonPath);
+  return config.projects?.[root]?.hasTrustDialogAccepted === true;
+}
+
+function effectiveSettings(root, trust) {
+  const userFile = path.join(configRoot, 'settings.json');
+  const projectFile = path.join(root, '.claude', 'settings.json');
+  const localFile = path.join(root, '.claude', 'settings.local.json');
+  const layers = [{ scope: 'user', file: userFile, values: readJson(userFile) }];
+  if (trust) {
+    layers.push({ scope: 'project', file: projectFile, values: readJson(projectFile) });
+    layers.push({ scope: 'local', file: localFile, values: readJson(localFile) });
+  }
+
+  function resolve(key, fallback) {
+    let found = { value: fallback, scope: 'default', file: null };
+    for (const layer of layers) {
+      if (Object.prototype.hasOwnProperty.call(layer.values, key)) {
+        found = { value: layer.values[key], scope: layer.scope, file: layer.file };
+      }
+    }
+    return found;
+  }
+
+  const configuredWithoutTrust = [projectFile, localFile]
+    .map((file) => ({ file, values: readJson(file) }))
+    .find(({ values }) => Object.prototype.hasOwnProperty.call(values, 'autoMemoryDirectory'));
+
+  return {
+    trust,
+    enabled: resolve('autoMemoryEnabled', true),
+    directory: resolve('autoMemoryDirectory', null),
+    configuredWithoutTrust,
+  };
+}
+
+function inspectIndex(memoryDir, issues) {
+  const files = mdFiles(memoryDir);
+  if (!files.length) return { files, links: [] };
+
+  const indexPath = path.join(memoryDir, 'MEMORY.md');
+  if (!fs.existsSync(indexPath)) {
+    issues.push({
+      code: 'missing-index',
+      message: `${memoryDir} に topic file はありますが MEMORY.md がありません`,
+    });
+    return { files, links: [] };
+  }
+
+  const index = fs.readFileSync(indexPath, 'utf8');
+  const links = [...index.matchAll(/\]\(([^)]+\.md)\)/g)].map((match) => match[1]);
+  for (const target of new Set(links)) {
+    if (!fs.existsSync(path.join(memoryDir, target))) {
+      issues.push({
+        code: 'broken-index-link',
+        message: `MEMORY.md が存在しない ${target} を参照しています`,
+      });
+    }
+  }
+
+  const indexed = new Set(links);
+  for (const file of files) {
+    if (file !== 'MEMORY.md' && !indexed.has(file)) {
+      issues.push({
+        code: 'unindexed-topic',
+        message: `${file} が MEMORY.md の索引にありません`,
+      });
+    }
+  }
+
+  const lineCount = index.split('\n').length;
+  const byteCount = Buffer.byteLength(index);
+  if (lineCount > 200 || byteCount > 25 * 1024) {
+    issues.push({
+      code: 'index-over-limit',
+      message: `MEMORY.md が起動時読込上限を超えています (${lineCount} lines / ${byteCount} bytes)`,
+    });
+  }
+  return { files, links };
+}
+
+function inspectProject(inputPath) {
+  const cwd = realpathIfPossible(inputPath);
+  const root = projectRootFor(cwd);
+  const checkoutRoot = realpathIfPossible(git(cwd, ['rev-parse', '--show-toplevel']) || root);
+  const slug = slugify(root);
+  const defaultDir = path.join(projectsRoot, slug, 'memory');
+  const trust = projectTrust(checkoutRoot) || projectTrust(root);
+  const settings = effectiveSettings(root, trust);
+  const issues = [];
+
+  const stalePaths = [...knownBucketPaths().values()]
+    .flatMap((paths) => [...paths])
+    .filter(
+      (candidate) =>
+        candidate !== root &&
+        !fs.existsSync(candidate) &&
+        path.basename(candidate) === path.basename(root),
+    );
+  for (const stalePath of new Set(stalePaths)) {
+    issues.push({
+      code: "orphaned-project-state",
+      message: `消滅した旧パス ${stalePath} の Claude Code state が残っています`,
+    });
+  }
+
+  if (!settings.trust && settings.configuredWithoutTrust) {
+    issues.push({
+      code: 'untrusted-override',
+      message: `${settings.configuredWithoutTrust.file} の autoMemoryDirectory は workspace trust 未承認のため無効です`,
+    });
+  }
+
+  const disabledByEnv = process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY === '1';
+  const enabled = settings.enabled.value !== false && !disabledByEnv;
+  const custom = typeof settings.directory.value === 'string' && settings.directory.value.length > 0;
+  const customIsAbsolute =
+    custom &&
+    (settings.directory.value.startsWith('/') || settings.directory.value.startsWith('~/'));
+  if (custom && !customIsAbsolute) {
+    issues.push({
+      code: 'invalid-memory-directory',
+      message: 'autoMemoryDirectory は絶対パスまたは ~/ で始める必要があります',
+    });
+  }
+  const memoryDir = customIsAbsolute ? expandHome(settings.directory.value) : defaultDir;
+  const inspected = enabled ? inspectIndex(memoryDir, issues) : { files: [], links: [] };
+
+  // A configured stable directory must contain every old default-memory file.
+  // Keeping identical default files as rollback copies is fine; only missing or
+  // divergent files indicate a split store.
+  if (enabled && customIsAbsolute && path.resolve(memoryDir) !== path.resolve(defaultDir)) {
+    for (const file of mdFiles(defaultDir)) {
+      const oldFile = path.join(defaultDir, file);
+      const activeFile = path.join(memoryDir, file);
+      if (!fs.existsSync(activeFile)) {
+        issues.push({
+          code: 'unmigrated-default-memory',
+          message: `旧 default store の ${file} が固定保存先へ移行されていません`,
+        });
+      } else if (!sameFile(oldFile, activeFile) && file !== 'MEMORY.md') {
+        issues.push({
+          code: 'diverged-default-memory',
+          message: `旧 default store と固定保存先の ${file} が分岐しています`,
+        });
+      } else if (file === 'MEMORY.md' && !sameFile(oldFile, activeFile)) {
+        const activeLines = fs.readFileSync(activeFile, 'utf8').split('\n').filter((line) => line.trim());
+        const activeTargets = new Set(
+          activeLines.map((line) => line.match(/\]\(([^)]+)\)/)?.[1]).filter(Boolean),
+        );
+        const activePlainLines = new Set(
+          activeLines.filter((line) => !line.match(/\]\(([^)]+)\)/)),
+        );
+        const missingIndexLine = fs
+          .readFileSync(oldFile, 'utf8')
+          .split('\n')
+          .filter((line) => line.trim())
+          .find((line) => {
+            const target = line.match(/\]\(([^)]+)\)/)?.[1];
+            return target ? !activeTargets.has(target) : !activePlainLines.has(line);
+          });
+        if (missingIndexLine) {
+          issues.push({
+            code: 'diverged-default-index',
+            message: '旧 default store の MEMORY.md に固定保存先へ未統合の項目があります',
+          });
+        }
+      }
+    }
+  }
+
+  // Before worktree/subdirectory sharing, Claude Code could leave memory below
+  // a cwd-derived child bucket. It is invisible to current repo-root memory.
+  if (enabled && fs.existsSync(projectsRoot)) {
+    const prefix = `${slug}-`;
+    for (const bucket of fs.readdirSync(projectsRoot)) {
+      if (!bucket.startsWith(prefix)) continue;
+      const candidates = [...(knownBucketPaths().get(bucket) || [])].filter((candidate) =>
+        fs.existsSync(candidate),
+      );
+      if (!candidates.some((candidate) => projectRootFor(candidate) === root)) continue;
+      const legacyDir = path.join(projectsRoot, bucket, 'memory');
+      for (const file of mdFiles(legacyDir)) {
+        if (file === 'MEMORY.md') continue;
+        const legacyFile = path.join(legacyDir, file);
+        const activeFile = path.join(memoryDir, file);
+        if (!fs.existsSync(activeFile) || !sameFile(legacyFile, activeFile)) {
+          issues.push({
+            code: 'legacy-child-memory',
+            message: `${bucket}/memory/${file} は現行の Git-root memory から参照できません`,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    cwd,
+    root,
+    slug,
+    trust: settings.trust,
+    enabled,
+    source: settings.directory.scope,
+    memoryDir,
+    defaultDir,
+    memoryFiles: inspected.files.length,
+    issues,
+  };
+}
+
+function humanReport(result) {
+  console.log(`project root : ${result.root}`);
+  console.log(`memory dir   : ${result.memoryDir}`);
+  console.log(`settings     : ${result.source}${result.trust ? ' / trusted' : ' / untrusted'}`);
+  console.log(`memory files : ${result.memoryFiles}`);
+  if (!result.enabled) {
+    console.log('status       : auto memory disabled');
+    return;
+  }
+  if (!result.issues.length) {
+    console.log('status       : OK');
+    return;
+  }
+  console.log('status       : ERROR');
+  for (const issue of result.issues) console.log(`- [${issue.code}] ${issue.message}`);
+}
+
+const args = process.argv.slice(2);
+const hookMode = args.includes('--hook');
+const jsonMode = args.includes('--json');
+const allMode = args.includes('--all');
+const positional = args.filter((arg) => !arg.startsWith('-'));
+
+if (args.includes('--help')) {
+  console.log('usage: claude-memory-doctor [--json] [path]');
+  console.log('       claude-memory-doctor --all [--json]');
+  console.log('       claude-memory-doctor --hook [path]');
+  process.exit(0);
+}
+
+let hookInput = {};
+if (hookMode && !process.stdin.isTTY) {
+  try {
+    const raw = fs.readFileSync(0, 'utf8');
+    hookInput = raw.trim() ? JSON.parse(raw) : {};
+  } catch {
+    hookInput = {};
+  }
+}
+
+let targets;
+if (allMode) {
+  const config = readJson(claudeJsonPath);
+  targets = Object.keys(config.projects || {}).filter((project) => fs.existsSync(project));
+} else {
+  targets = [positional[0] || hookInput.cwd || process.cwd()];
+}
+
+const uniqueRoots = new Map();
+for (const target of targets) {
+  const result = inspectProject(target);
+  uniqueRoots.set(result.root, result);
+}
+const results = [...uniqueRoots.values()].sort((a, b) => a.root.localeCompare(b.root));
+const issueCount = results.reduce((sum, result) => sum + result.issues.length, 0);
+
+if (hookMode) {
+  const current = results[0];
+  if (current?.issues.length) {
+    const summary = current.issues.slice(0, 5).map((issue) => `- ${issue.message}`).join('\n');
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'SessionStart',
+          additionalContext:
+            `⚠️ Claude Code auto-memory の保存先に問題があります。\n${summary}\n` +
+            `確認: claude-memory-doctor ${JSON.stringify(current.cwd)}`,
+        },
+      }) + '\n',
+    );
+  }
+} else if (jsonMode) {
+  console.log(JSON.stringify(results, null, 2));
+} else {
+  results.forEach((result, index) => {
+    if (index) console.log('');
+    humanReport(result);
+  });
+}
+
+process.exitCode = issueCount ? 1 : 0;
