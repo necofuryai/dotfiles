@@ -314,6 +314,7 @@
     },
     "filesystem": {
       "allowWrite": [
+        "{{ .chezmoi.homeDir }}/.config/chezmoi",
         "{{ .chezmoi.homeDir }}/.gnupg",
         "{{ .chezmoi.homeDir }}/Library/pnpm"
       ]

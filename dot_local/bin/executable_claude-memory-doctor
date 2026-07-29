@@ -4,6 +4,10 @@
 // Audit Claude Code auto-memory without printing memory contents or settings values.
 // Claude Code v2.1.220 derives auto-memory from the Git repository root, while
 // transcript storage remains tied to the session cwd. Keep those identities separate.
+//
+// --fix repairs unconfigured-stable-store by regenerating settings.local.json.
+// The pointer is derived data: expectedStableDir() recomputes it from the repo
+// identity, so a lost file is recreated instead of restored from a backup.
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -292,9 +296,10 @@ function inspectProject(inputPath) {
   }
   // A stable store that exists but is not wired up (fresh clone, lost
   // settings.local.json) silently falls back to the path-keyed default store.
-  // Skip when the setting exists but trust is pending: untrusted-override
-  // already reports that cause.
-  if (enabled && !custom && !settings.configuredWithoutTrust) {
+  // Suppress only while trust is pending on a configured override, where
+  // untrusted-override already reports the cause; a trusted project whose
+  // value is degenerate (null/empty) is still effectively unconfigured.
+  if (enabled && !custom && (settings.trust || !settings.configuredWithoutTrust)) {
     const expected = expectedStableDir(root);
     if (expected && mdFiles(expected).length) {
       issues.push({
@@ -389,11 +394,100 @@ function inspectProject(inputPath) {
   };
 }
 
+// Repair unconfigured-stable-store only. Every other issue either needs human
+// judgment (diverged stores) or has a distinct cause reported separately.
+// Requires accepted trust: a settings.local.json written into an untrusted
+// project would sit dormant and surprise the user when trust is granted later.
+function tryFixUnconfiguredStableStore(result) {
+  if (!result.issues.some((issue) => issue.code === 'unconfigured-stable-store')) return null;
+  const file = path.join(result.root, '.claude', 'settings.local.json');
+  if (!result.trust) {
+    return { file, applied: false, reason: 'workspace trust 未承認のため settings.local.json を書きません' };
+  }
+  if (!fs.existsSync(result.root)) {
+    return { file, applied: false, reason: 'project root が存在しないためディレクトリを作りません' };
+  }
+  const expected = expectedStableDir(result.root);
+  if (!expected || !mdFiles(expected).length) return null;
+
+  // local/<basename> stores carry no ownership metadata: a same-named live
+  // project elsewhere may own this store, and auto-wiring it here would read
+  // and pollute another project's memory. Refuse and leave it to the user.
+  if (expected === path.join(stableStoreRoot, 'local', path.basename(result.root))) {
+    const rival = [...knownBucketPaths().values()]
+      .flatMap((paths) => [...paths])
+      .find(
+        (candidate) =>
+          path.basename(candidate) === path.basename(result.root) &&
+          realpathIfPossible(candidate) !== result.root &&
+          fs.existsSync(candidate),
+      );
+    if (rival) {
+      return {
+        file,
+        applied: false,
+        reason: `安定ストア local/${path.basename(result.root)} は同名の別プロジェクト ${rival} のものである可能性があるため自動修復を中止しました`,
+      };
+    }
+  }
+
+  let settings = {};
+  let existingStat = null;
+  try {
+    existingStat = fs.lstatSync(file);
+  } catch {}
+  if (existingStat?.isSymbolicLink()) {
+    return {
+      file,
+      applied: false,
+      reason: 'settings.local.json が symlink (dotfiles 管理?) のため、リンク先への手動追記に委ねます',
+    };
+  }
+  if (existingStat) {
+    try {
+      settings = JSON.parse(fs.readFileSync(file, 'utf8'));
+    } catch {
+      settings = null;
+    }
+    if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
+      return {
+        file,
+        applied: false,
+        reason: '既存の settings.local.json が JSON オブジェクトとして読めないため自動修復を中止しました',
+      };
+    }
+  }
+
+  const value = expected.startsWith(userHome + path.sep)
+    ? `~${expected.slice(userHome.length)}`
+    : expected;
+  settings.autoMemoryDirectory = value;
+  const tmp = `${file}.tmp.${process.pid}`;
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`);
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {}
+    return { file, applied: false, reason: `書き込みに失敗しました: ${error.message}` };
+  }
+  return { file, applied: true, value };
+}
+
 function humanReport(result) {
   console.log(`project root : ${result.root}`);
   console.log(`memory dir   : ${result.memoryDir}`);
   console.log(`settings     : ${result.source}${result.trust ? ' / trusted' : ' / untrusted'}`);
   console.log(`memory files : ${result.memoryFiles}`);
+  for (const fix of result.fixes || []) {
+    console.log(
+      fix.applied
+        ? `fixed        : autoMemoryDirectory → ${fix.value}`
+        : `fix skipped  : ${fix.reason}`,
+    );
+  }
   if (!result.enabled) {
     console.log('status       : auto memory disabled');
     return;
@@ -410,12 +504,15 @@ const args = process.argv.slice(2);
 const hookMode = args.includes('--hook');
 const jsonMode = args.includes('--json');
 const allMode = args.includes('--all');
+const fixMode = args.includes('--fix');
 const positional = args.filter((arg) => !arg.startsWith('-'));
 
 if (args.includes('--help')) {
-  console.log('usage: claude-memory-doctor [--json] [path]');
-  console.log('       claude-memory-doctor --all [--json]');
-  console.log('       claude-memory-doctor --hook [path]');
+  console.log('usage: claude-memory-doctor [--json] [--fix] [path]');
+  console.log('       claude-memory-doctor --all [--json] [--fix]');
+  console.log('       claude-memory-doctor --hook [--fix] [path]');
+  console.log('');
+  console.log('--fix: unconfigured-stable-store 検出時に settings.local.json を再生成する');
   process.exit(0);
 }
 
@@ -430,16 +527,28 @@ if (hookMode && !process.stdin.isTTY) {
 }
 
 let targets;
-if (allMode) {
+// Hook mode always audits the session's own project: honoring --all here
+// would fix and report an unrelated, alphabetically-first project.
+if (allMode && !hookMode) {
   const config = readJson(claudeJsonPath);
   targets = Object.keys(config.projects || {}).filter((project) => fs.existsSync(project));
 } else {
   targets = [positional[0] || hookInput.cwd || process.cwd()];
 }
 
+// uniqueRoots keeps the LAST result per root (the pre --fix semantics some
+// trust/cwd fields depend on); the fix runs at most once per root, memoized
+// separately so a later duplicate target does not drop the fix report.
 const uniqueRoots = new Map();
+const fixByRoot = new Map();
 for (const target of targets) {
-  const result = inspectProject(target);
+  let result = inspectProject(target);
+  if (fixMode && !fixByRoot.has(result.root)) {
+    fixByRoot.set(result.root, tryFixUnconfiguredStableStore(result));
+    if (fixByRoot.get(result.root)?.applied) result = inspectProject(target);
+  }
+  const fix = fixByRoot.get(result.root);
+  if (fix) result.fixes = [fix];
   uniqueRoots.set(result.root, result);
 }
 const results = [...uniqueRoots.values()].sort((a, b) => a.root.localeCompare(b.root));
@@ -447,15 +556,25 @@ const issueCount = results.reduce((sum, result) => sum + result.issues.length, 0
 
 if (hookMode) {
   const current = results[0];
+  const lines = [];
+  for (const fix of current?.fixes || []) {
+    lines.push(
+      fix.applied
+        ? `🔧 auto-memory の保存先を自動修復しました: autoMemoryDirectory → ${fix.value}`
+        : `⚠️ auto-memory の自動修復をスキップしました: ${fix.reason}`,
+    );
+  }
   if (current?.issues.length) {
-    const summary = current.issues.slice(0, 5).map((issue) => `- ${issue.message}`).join('\n');
+    lines.push('⚠️ Claude Code auto-memory の保存先に問題があります。');
+    lines.push(...current.issues.slice(0, 5).map((issue) => `- ${issue.message}`));
+    lines.push(`確認: claude-memory-doctor ${JSON.stringify(current.cwd)}`);
+  }
+  if (lines.length) {
     process.stdout.write(
       JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'SessionStart',
-          additionalContext:
-            `⚠️ Claude Code auto-memory の保存先に問題があります。\n${summary}\n` +
-            `確認: claude-memory-doctor ${JSON.stringify(current.cwd)}`,
+          additionalContext: lines.join('\n'),
         },
       }) + '\n',
     );
@@ -469,4 +588,6 @@ if (hookMode) {
   });
 }
 
-process.exitCode = issueCount ? 1 : 0;
+// Hooks must exit 0: Claude Code parses hookSpecificOutput JSON only on a
+// clean exit; non-zero would discard the notification as a hook error.
+process.exitCode = hookMode ? 0 : issueCount ? 1 : 0;

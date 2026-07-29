@@ -9,4 +9,4 @@ if [ ! -x "$doctor" ]; then
   exit 0
 fi
 
-exec "$doctor" --hook
+exec "$doctor" --hook --fix
