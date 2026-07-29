@@ -1,0 +1,366 @@
+{
+  "cleanupPeriodDays": 180,
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "permissions": {
+    "allow": [
+      "Bash(awk:*)",
+      "Bash(basename:*)",
+      "Bash(brew info:*)",
+      "Bash(brew list:*)",
+      "Bash(brew search:*)",
+      "Bash(brew services:*)",
+      "Bash(bun:*)",
+      "Bash(bunx:*)",
+      "Bash(cat:*)",
+      "Bash(cd:*)",
+      "Bash(chezmoi diff:*)",
+      "Bash(chezmoi git log:*)",
+      "Bash(chezmoi git status:*)",
+      "Bash(chezmoi managed:*)",
+      "Bash(chezmoi source-path:*)",
+      "Bash(chezmoi status:*)",
+      "Bash(chezmoi update:*)",
+      "Bash(chmod:*)",
+      "Bash(claude config --help:*)",
+      "Bash(claude mcp --help:*)",
+      "Bash(column:*)",
+      "Bash(cp:*)",
+      "Bash(curl:*)",
+      "Bash(cut:*)",
+      "Bash(dart:*)",
+      "Bash(date:*)",
+      "Bash(defaults read:*)",
+      "Bash(diff:*)",
+      "Bash(dig:*)",
+      "Bash(dirname:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker compose exec:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(du:*)",
+      "Bash(echo:*)",
+      "Bash(env:*)",
+      "Bash(file:*)",
+      "Bash(find:*)",
+      "Bash(flutter:*)",
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(go build:*)",
+      "Bash(go clean:*)",
+      "Bash(go doc:*)",
+      "Bash(go env:*)",
+      "Bash(go fmt:*)",
+      "Bash(go generate:*)",
+      "Bash(go mod:*)",
+      "Bash(go run:*)",
+      "Bash(go test:*)",
+      "Bash(go tool:*)",
+      "Bash(go version:*)",
+      "Bash(go vet:*)",
+      "Bash(goenv:*)",
+      "Bash(gofumpt:*)",
+      "Bash(golangci-lint:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(jq:*)",
+      "Bash(ls:*)",
+      "Bash(lsof:*)",
+      "Bash(make:*)",
+      "Bash(migrate:*)",
+      "Bash(mise:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(node:*)",
+      "Bash(open:*)",
+      "Bash(paste:*)",
+      "Bash(plutil:*)",
+      "Bash(pnpm:*)",
+      "Bash(pod:*)",
+      "Bash(printenv:*)",
+      "Bash(ps:*)",
+      "Bash(pwd)",
+      "Bash(readlink:*)",
+      "Bash(realpath:*)",
+      "Bash(rg:*)",
+      "Bash(sed:*)",
+      "Bash(shasum:*)",
+      "Bash(sips:*)",
+      "Bash(sleep:*)",
+      "Bash(sort:*)",
+      "Bash(stat:*)",
+      "Bash(swift:*)",
+      "Bash(tail:*)",
+      "Bash(tar:*)",
+      "Bash(tdd-guard:*)",
+      "Bash(tee:*)",
+      "Bash(test:*)",
+      "Bash(touch:*)",
+      "Bash(tr:*)",
+      "Bash(tree:*)",
+      "Bash(uname:*)",
+      "Bash(unzip:*)",
+      "Bash(uv:*)",
+      "Bash(wc:*)",
+      "Bash(which:*)",
+      "Bash(whois:*)",
+      "Bash(wrangler --version:*)",
+      "Bash(xargs:*)",
+      "Bash(xcode-select:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(xcrun:*)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:apify.com)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "WebFetch(domain:cdn.simpleicons.org)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:cookbook.openai.com)",
+      "WebFetch(domain:developers.cloudflare.com)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:docs.firecrawl.dev)",
+      "WebFetch(domain:empathyfirstmedia.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:icons.getbootstrap.com)",
+      "WebFetch(domain:lefthook.dev)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:platform.claude.com)",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:pure.md)",
+      "WebFetch(domain:qiita.com)",
+      "WebFetch(domain:railway.com)",
+      "WebFetch(domain:rapidapi.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:sakana.ai)",
+      "WebFetch(domain:simpleicons.org)",
+      "WebFetch(domain:spider.cloud)",
+      "WebFetch(domain:supadata.ai)",
+      "WebFetch(domain:typicode.github.io)",
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "WebFetch(domain:www.dumplingai.com)",
+      "WebFetch(domain:www.firecrawl.dev)",
+      "WebFetch(domain:www.humanlayer.dev)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:x.ai)",
+      "WebFetch(domain:zenn.dev)",
+      "WebSearch"
+    ],
+    "deny": [
+      "Bash(bash -c:*)",
+      "Bash(bun remove:*)",
+      "Bash(git reset:*)",
+      "Bash(npm remove:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(pip:*)",
+      "Bash(sudo:*)",
+      "NotebookEdit",
+      "Read(**/.env*)",
+      "Read(**/*secret*token*)",
+      "Read(id_ed25519)",
+      "Read(id_rsa)",
+      "Edit(.env*)",
+      "Edit(**/secrets/**)"
+    ],
+    "ask": [
+      "Bash(rm:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git rebase:*)",
+      "Bash(export:*)",
+      "Bash(go install:*)",
+      "Bash(brew install:*)",
+      "Bash(brew upgrade:*)",
+      "Bash(brew uninstall:*)"
+    ]
+  },
+  "model": "sonnet",
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"⚠️ Web 検索時は必ず検索語に現在の年（%s）を含めること\"}}' \"$(date +%Y)\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | grep -q 'git commit' && { gpgconf --kill keyboxd; gpgconf --launch keyboxd; } 2>/dev/null; exit 0",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "input=$(cat); cmd=$(printf '%s' \"$input\" | jq -r '.tool_input.command // empty'); [ -n \"$cmd\" ] || exit 0; jp() { printf '%s' \"$1\" | perl -CSD -ne '$f=1 if /[\\p{Hiragana}\\p{Katakana}\\p{Han}]/; END{exit($f?0:1)}'; }; case \"$cmd\" in *'git commit'*) if jp \"$cmd\"; then printf '%s\\n' 'コミットメッセージは英語で記述すること (~/.claude/rules/git-workflow.md)。日本語を含む git commit コマンドはブロックされる。英語の Conventional Commits 形式で書き直すこと。gh pr create を連結していて PR 本文の日本語が原因の場合は、commit と gh pr create を別コマンドに分けること。' >&2; exit 2; fi;; esac; case \"$cmd\" in *'gh pr create'*|*'gh pr edit'*) t=$(printf '%s' \"$cmd\" | perl -CSD -0777 -ne 'if (/(?:^|\\s)(?:--title|-t)(?:=|\\s+)\"((?:\\\\.|[^\"\\\\])*)\"/) { print $1 } elsif (/(?:^|\\s)(?:--title|-t)(?:=|\\s+)\\x27([^\\x27]*)\\x27/) { print $1 } elsif (/(?:^|\\s)(?:--title|-t)(?:=|\\s+)(\\S+)/) { print $1 }'); if [ -n \"$t\" ] && jp \"$t\"; then printf '%s\\n' 'PR タイトルは英語で記述すること (~/.claude/rules/git-workflow.md)。--title を英語に修正すること。PR 本文 (--body) の日本語は問題ない。' >&2; exit 2; fi;; esac; exit 0",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | grep -qE '(\\.env|\\.git/|package-lock\\.json|credentials|secrets)' && { echo '⚠️ 保護されたファイルへの編集はブロックされました' >&2; exit 2; } || exit 0"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.prompt' | grep -qiE '(sk-[a-zA-Z0-9]{20,}|xoxb-|ghp_|AKIA[A-Z0-9]{16})' && { echo '{\"decision\":\"block\",\"reason\":\"⚠️ API キーやトークンが含まれています。1Password などで管理してください。\"}'; exit 0; } || exit 0"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/restore-context.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/memory-guard.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node {{ .chezmoi.homeDir }}/.claude/statusline-context.js",
+    "padding": 0
+  },
+  "enabledPlugins": {
+    "context7@claude-plugins-official": true,
+    "explanatory-output-style@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "mattpocock-skills@mattpocock": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true,
+    "github@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "mattpocock": {
+      "source": {
+        "source": "github",
+        "repo": "mattpocock/skills"
+      }
+    }
+  },
+  "outputStyle": "Explanatory",
+  "language": "japanese",
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedDomains": [
+        "localhost",
+        "127.0.0.1"
+      ],
+      "allowUnixSockets": [
+        "{{ .chezmoi.homeDir }}/.gnupg/S.gpg-agent",
+        "{{ .chezmoi.homeDir }}/.gnupg/S.gpg-agent.extra",
+        "{{ .chezmoi.homeDir }}/.gnupg/S.gpg-agent.ssh",
+        "{{ .chezmoi.homeDir }}/.gnupg/S.gpg-agent.browser",
+        "{{ .chezmoi.homeDir }}/.gnupg/S.keyboxd",
+        "{{ .chezmoi.homeDir }}/.gnupg/S.dirmngr"
+      ],
+      "allowLocalBinding": true
+    },
+    "filesystem": {
+      "allowWrite": [
+        "{{ .chezmoi.homeDir }}/.gnupg",
+        "{{ .chezmoi.homeDir }}/Library/pnpm"
+      ]
+    },
+    "enableWeakerNetworkIsolation": true,
+    "excludedCommands": [
+      "git",
+      "git *",
+      "gpg",
+      "gpg *",
+      "gpgconf",
+      "gpgconf *",
+      "gpg-agent",
+      "gpg-agent *",
+      "mise",
+      "mise *",
+      "flutter",
+      "flutter *",
+      "dart",
+      "dart *",
+      "xcodebuild",
+      "xcodebuild *",
+      "swift",
+      "swift *",
+      "xcrun",
+      "xcrun *",
+      "pod",
+      "pod *",
+      "npm",
+      "npm *",
+      "npx",
+      "npx *",
+      "pnpm",
+      "pnpm *",
+      "gh",
+      "gh *",
+      "kill",
+      "kill *",
+      "pkill",
+      "pkill *",
+      "sleep",
+      "sleep *"
+    ]
+  },
+  "effortLevel": "xhigh",
+  "tui": "fullscreen",
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark",
+  "skipAutoPermissionPrompt": true
+}
