@@ -1,0 +1,21 @@
+title = "dotfiles security policy"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "forbidden-claude-local-settings"
+description = "Claude Code machine-local settings must not be committed"
+path = '''(^|/)\.claude/settings\.local\.json$'''
+tags = ["local-state"]
+
+[[rules]]
+id = "hardcoded-macos-home-path"
+description = "Hard-coded macOS home directory"
+regex = '''/Users/[A-Za-z0-9._-]+/'''
+keywords = ["/Users/"]
+tags = ["privacy"]
+
+    [[rules.allowlists]]
+    description = "Ignore the detector definition itself"
+    paths = ['''(^|/)\.gitleaks\.toml$''']
