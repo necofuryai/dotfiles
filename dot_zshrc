@@ -180,17 +180,12 @@ if command -v brew &>/dev/null; then
 
     chezmoi git -- add -- "$brewfile_source" || return
 
-    local diff_status
-    chezmoi git -- diff --cached --quiet -- "$brewfile_source"
-    diff_status=$?
-    case "$diff_status" in
-      0) ;;
-      1)
-        echo "Brewfile staged. Review with: chezmoi git -- diff --cached -- dot_Brewfile"
-        echo "Commit and push manually after review."
-        ;;
-      *) return "$diff_status" ;;
-    esac
+    local staged_brewfile
+    staged_brewfile="$(chezmoi git -- diff --cached --name-only -- "$brewfile_source")" || return
+    if [[ -n "$staged_brewfile" ]]; then
+      echo "Brewfile staged. Review with: chezmoi git -- diff --cached -- dot_Brewfile"
+      echo "Commit and push manually after review."
+    fi
   }
 fi
 
