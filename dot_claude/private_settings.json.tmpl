@@ -39,8 +39,6 @@
       "Bash(dig:*)",
       "Bash(dirname:*)",
       "Bash(docker compose:*)",
-      "Bash(docker compose exec:*)",
-      "Bash(docker compose logs:*)",
       "Bash(du:*)",
       "Bash(echo:*)",
       "Bash(file:*)",
@@ -176,7 +174,7 @@
       "Bash(brew uninstall:*)"
     ]
   },
-  "model": "sonnet",
+  "model": "opus[1m]",
   "enableAllProjectMcpServers": true,
   "hooks": {
     "PreToolUse": [
@@ -225,26 +223,7 @@
         ]
       }
     ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/pre-compact.sh"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/restore-context.sh"
-          }
-        ]
-      },
       {
         "matcher": "startup|resume",
         "hooks": [
@@ -263,7 +242,6 @@
     "padding": 0
   },
   "enabledPlugins": {
-    "explanatory-output-style@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
@@ -274,7 +252,6 @@
     "rust-analyzer-lsp@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true,
-    "github@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "context7@claude-plugins-official": true,
     "eli5@claude-community": true,
@@ -366,10 +343,11 @@
     ]
   },
   "effortLevel": "xhigh",
+  "advisorModel": "fable",
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "theme": "dark",
-  "skipAutoPermissionPrompt": true,
+  "agentPushNotifEnabled": true,
   "autoMode": {
     "allow": [
       "$defaults",
@@ -381,33 +359,6 @@
       "$defaults",
       "Bash(chezmoi apply:*)",
       "Bash(wrangler secret:*)"
-    ],
-    "environment": [
-      "### Org-wide",
-      "**Organization**: necofuryai (personal GitHub account; this repo's remote is github.com:necofuryai/necofuryai.dev)",
-      "**Cloud provider(s)**: Cloudflare (Workers Static Assets deploy for necofuryai.dev, per README and wrangler.jsonc)",
-      "**Repository visibility**: PUBLIC — necofuryai/necofuryai.dev is public per the authenticated gh API; any push there is publishing",
-      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
-      "**Secrets management**: GitHub Actions repository secrets for CI (names seen: APPLE_MUSIC_KEY_ID, APPLE_MUSIC_PRIVATE_KEY, APPLE_MUSIC_TEAM_ID, CLAUDE_CODE_OAUTH_TOKEN, GITHUB_TOKEN); local secrets in gitignored .env / .dev.vars files",
-      "**Default / protected branches**: default branch `main`; `main` is protected (no rulesets listed)",
-      "**CI/CD deploy targets**: Cloudflare Workers Static Assets for necofuryai.dev via Cloudflare's Git integration (wrangler is not a repo dependency); GitHub Actions workflows in .github/workflows (including skills-drift.yml)",
-      "**Network posture**: None configured",
-      "**Source control**: The trusted repo and its remote(s) only (no additional orgs configured) — github.com:necofuryai/necofuryai.dev, a PUBLIC repo, as scoped by the Trusted repo and Repository visibility entries above",
-      "**Trusted internal domains**: necofuryai.dev and www.necofuryai.dev (the site this repo publishes); developers.cloudflare.com and raw.githubusercontent.com / api.github.com for docs and repo metadata reads",
-      "**Trusted cloud buckets**: None configured",
-      "**Key internal services**: Cloudflare Workers (site hosting), GitHub (issues, PRs, Actions), Pagefind search index built at build time, GA4 via PUBLIC_GA_MEASUREMENT_ID",
-      "**Internal package registry**: None configured — public npm via pnpm (Node.js >= 22.13.0)",
-      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar. In this repo specifically: .env files (gitignored, .env.example is the only committed template) and Apple Music / Claude OAuth CI secret values",
-      "**Data retention / declassification**: None configured — note src/content/ article text is published publicly under CC BY-NC-SA 4.0 and code under MIT",
-      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment (hyphen/underscore/dot-delimited — e.g. matches `prod-db`, not `producer`); here the live site necofuryai.dev / www.necofuryai.dev is the production surface",
-      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic; treat the Cloudflare Workers production deployment of necofuryai.dev as protected",
-      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment; also wrangler.jsonc bindings, _headers, and Cloudflare secret/DNS changes for necofuryai.dev",
-      "### User-specific",
-      "**Primary use of Claude Code**: software development — maintaining a personal Astro + Tailwind + Svelte technical blog deployed to Cloudflare Workers, plus content authoring under src/content/",
-      "**Trusted repo**: ~/dev/necofuryai.dev and its remote github.com:necofuryai/necofuryai.dev. This repo is PUBLIC: only this repo's own work may be committed or pushed there — content ported, repointed, or first read from outside this session's repo is not its own work, whoever directed the port. Visibility scopes confidential material only: secrets and sensitive data (personal & entrusted) are never cleared into any repo by its visibility (see Definitions).",
-      "**Org-specific CLIs**: pnpm (primary package manager for this repo), chezmoi (dotfiles, outside this repo), gh, wrangler (used ad hoc via npx; not a repo dependency)",
-      "**Routine under this repo's prefix**: pnpm scripts (dev, build, preview, check, type-check, lint, format, new-post, test:unit, test:ui, diff-skills) are routine inside ~/dev/necofuryai.dev"
     ]
-  },
-  "agentPushNotifEnabled": true
+  }
 }
