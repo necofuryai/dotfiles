@@ -297,7 +297,13 @@
         "{{ .chezmoi.homeDir }}/.gnupg",
         "{{ .chezmoi.homeDir }}/go/pkg/mod",
         "{{ .chezmoi.homeDir }}/Library/Caches/go-build",
-        "{{ .chezmoi.homeDir }}/Library/pnpm"
+        "{{ .chezmoi.homeDir }}/Library/pnpm",
+        "{{ .chezmoi.homeDir }}/.cargo",
+        "{{ .chezmoi.homeDir }}/.rustup"
+      ],
+      "denyWrite": [
+        "{{ .chezmoi.homeDir }}/.cargo/credentials.toml",
+        "{{ .chezmoi.homeDir }}/.cargo/credentials"
       ]
     },
     "enableWeakerNetworkIsolation": true,
