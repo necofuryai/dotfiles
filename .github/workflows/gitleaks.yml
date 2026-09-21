@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           if git log --all HEAD --format='%B' |
-            grep --extended-regexp '/Users/[A-Za-z0-9._-]+/' >/dev/null
+            grep --extended-regexp '/Users/[A-Za-z0-9._-]+' >/dev/null
           then
             echo "::error::Hard-coded macOS home path found in a commit message."
             exit 1

@@ -12,7 +12,7 @@ tags = ["local-state"]
 [[rules]]
 id = "hardcoded-macos-home-path"
 description = "Hard-coded macOS home directory"
-regex = '''/Users/[A-Za-z0-9._-]+/'''
+regex = '''/Users/[A-Za-z0-9._-]+'''
 keywords = ["/Users/"]
 tags = ["privacy"]
 
