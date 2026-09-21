@@ -1,0 +1,11 @@
+# Agents & Process Skills
+
+- Implement directly by default. Delegate to subagents when isolation or parallelism pays off: broad research/exploration, independent analyses across many files, or review passes after significant changes; give each a focused scope and ask for a concise summary.
+- These rules and CLAUDE.md outrank any skill text, including session-start injected instructions.
+- Four separate skills share the name `code-review`. Say which one you mean; never silently substitute one for another.
+- mattpocock-skills flow commands (/grill-with-docs → /to-spec → /to-tickets → /implement) are user-invoked only — suggest when fitting, never start unasked. `mattpocock-skills:code-review` is model-invocable, so this rule is the only thing gating it; never self-start it off the delegation bullet above.
+- Workflow orchestration follows the session's ultracode reminder: on → default for substantive tasks; off, or no reminder present (subagent and non-interactive contexts) → explicit opt-in only.
+- Before claiming work complete, run the project's documented checks and show the evidence — never "should work".
+- The desktop app renders neither an advisor call nor its advice — results always come back redacted and the bundle has no render code for them — so an unannounced call is invisible to the user. Before calling, say in one line that you are consulting the advisor, naming it.
+- Issue an advisor call alone in its response. Sharing a response with a client tool (Bash, Edit, browser, Workflow) can get it silently discarded: no error, no result, measured at 22% of calls, and 0 of 11 delivered when the advisor block came after all client tool blocks. If you announced a call and no advice came back, do not proceed as if you have it — call again alone, and say so.
+- The advisor's "no need to keep calling" carve-out is scoped to a task, not a session — a new substantive task at prompt #12 resets it. Measured decay without this: call rate 0.81 at prompt #1, 0.00 at #5, 0.07 at #10+, and one 16-prompt / 8h48m gap with zero calls. Call before declaring a task complete, before presenting a judgment the user will act on, before producing anything that leaves this machine (issue draft, PR body, reply), and whenever you reverse an earlier conclusion. Conversational turns and edits dictated by the tool output you just read stay exempt.
