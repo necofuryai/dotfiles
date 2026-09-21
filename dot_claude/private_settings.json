@@ -244,7 +244,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "node {{ .chezmoi.homeDir }}/.claude/statusline-context.js",
+    "command": "node ~/.claude/statusline-context.js",
     "padding": 0
   },
   "enabledPlugins": {
@@ -288,28 +288,28 @@
         "127.0.0.1"
       ],
       "allowUnixSockets": [
-        "{{ .chezmoi.homeDir }}/.gnupg/S.gpg-agent",
-        "{{ .chezmoi.homeDir }}/.gnupg/S.gpg-agent.extra",
-        "{{ .chezmoi.homeDir }}/.gnupg/S.gpg-agent.ssh",
-        "{{ .chezmoi.homeDir }}/.gnupg/S.gpg-agent.browser",
-        "{{ .chezmoi.homeDir }}/.gnupg/S.keyboxd",
-        "{{ .chezmoi.homeDir }}/.gnupg/S.dirmngr"
+        "~/.gnupg/S.gpg-agent",
+        "~/.gnupg/S.gpg-agent.extra",
+        "~/.gnupg/S.gpg-agent.ssh",
+        "~/.gnupg/S.gpg-agent.browser",
+        "~/.gnupg/S.keyboxd",
+        "~/.gnupg/S.dirmngr"
       ],
       "allowLocalBinding": true
     },
     "filesystem": {
       "allowWrite": [
-        "{{ .chezmoi.homeDir }}/.config/chezmoi",
-        "{{ .chezmoi.homeDir }}/.gnupg",
-        "{{ .chezmoi.homeDir }}/go/pkg/mod",
-        "{{ .chezmoi.homeDir }}/Library/Caches/go-build",
-        "{{ .chezmoi.homeDir }}/Library/pnpm",
-        "{{ .chezmoi.homeDir }}/.cargo",
-        "{{ .chezmoi.homeDir }}/.rustup"
+        "~/.config/chezmoi",
+        "~/.gnupg",
+        "~/go/pkg/mod",
+        "~/Library/Caches/go-build",
+        "~/Library/pnpm",
+        "~/.cargo",
+        "~/.rustup"
       ],
       "denyWrite": [
-        "{{ .chezmoi.homeDir }}/.cargo/credentials.toml",
-        "{{ .chezmoi.homeDir }}/.cargo/credentials"
+        "~/.cargo/credentials.toml",
+        "~/.cargo/credentials"
       ]
     },
     "enableWeakerNetworkIsolation": true,
