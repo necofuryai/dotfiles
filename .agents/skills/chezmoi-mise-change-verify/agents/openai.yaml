@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chezmoi Mise Change Verify"
+  short_description: "Verify chezmoi and mise changes from source to effect"
+  default_prompt: "Use $chezmoi-mise-change-verify to verify or update this chezmoi-managed setting or mise-owned runtime while keeping source, live, and effective state distinct."
