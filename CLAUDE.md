@@ -19,8 +19,8 @@ This is a **chezmoi source directory** — files here are the source of truth fo
   it with `brew bundle dump` after install/uninstall/tap. Don't hand-edit it —
   change the installed packages instead.
 - Files at the repo root deploy into `$HOME` unless listed in `.chezmoiignore`
-  (README.md, LICENSE, THIRD-PARTY-LICENSES.md, `.agents/` and this file are
-  ignored there). Keep it that way when adding repo-level docs.
+  (README.md, LICENSE, THIRD-PARTY-LICENSES.md, `.agents/`, `docs/` and this
+  file are ignored there). Keep it that way when adding repo-level docs.
 - **Never run `chezmoi apply --force`.** Plain `apply` prompts when a target has
   drifted; `--force` overwrites it with no prompt and no output. On
   `~/.claude/settings.json` that silently discards permission approvals Claude
