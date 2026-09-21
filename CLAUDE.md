@@ -24,7 +24,9 @@ This is a **chezmoi source directory** — files here are the source of truth fo
 - **Never run `chezmoi apply --force`.** Plain `apply` prompts when a target has
   drifted; `--force` overwrites it with no prompt and no output. On
   `~/.claude/settings.json` that silently discards permission approvals Claude
-  Code wrote. At the drift prompt answer `skip`, not `overwrite`.
+  Code wrote. At the drift prompt answer `skip`, not `overwrite`. The
+  `~/.claude/hooks/chezmoi-guard.sh` PreToolUse hook blocks `--force` on
+  `apply`, `update` and `--apply` from Claude regardless of flag position.
 - **Never run `chezmoi add` on a templated target.** `chezmoi add --template`
   replaces the `.tmpl` body with rendered literals — exit 0, no prompt, no
   warning — baking an absolute home path into this public repo. Edit the
@@ -34,8 +36,11 @@ This is a **chezmoi source directory** — files here are the source of truth fo
   allowed, because on a non-templated target it infers the `private_` and
   `executable_` prefixes from the live file mode, which a plain `cp` into the
   source tree silently loses — and a 0600 secret copied that way is applied
-  back as 0644. The pre-commit gitleaks hook is the backstop that catches the
-  home path if the dangerous form is ever run.
+  back as 0644. The `~/.claude/hooks/chezmoi-guard.sh` PreToolUse hook
+  blocks the `-T`/`--template`, `-a`/`--autotemplate` and `--force` forms from
+  Claude (a permission pattern is a prefix match and cannot see a flag); the
+  pre-commit gitleaks hook is the backstop that catches the home path if the
+  dangerous form is ever run by hand.
 
 ## Verify changes
 

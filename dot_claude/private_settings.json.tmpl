@@ -201,6 +201,11 @@
             "type": "command",
             "command": "input=$(cat); cmd=$(printf '%s' \"$input\" | jq -r '.tool_input.command // empty'); [ -n \"$cmd\" ] || exit 0; jp() { printf '%s' \"$1\" | perl -CSD -ne '$f=1 if /[\\p{Hiragana}\\p{Katakana}\\p{Han}]/; END{exit($f?0:1)}'; }; case \"$cmd\" in *'git commit'*) if jp \"$cmd\"; then printf '%s\\n' 'コミットメッセージは英語で記述すること (~/.claude/rules/git-workflow.md)。日本語を含む git commit コマンドはブロックされる。英語の Conventional Commits 形式で書き直すこと。gh pr create を連結していて PR 本文の日本語が原因の場合は、commit と gh pr create を別コマンドに分けること。' >&2; exit 2; fi;; esac; case \"$cmd\" in *'gh pr create'*|*'gh pr edit'*) t=$(printf '%s' \"$cmd\" | perl -CSD -0777 -ne 'if (/(?:^|\\s)(?:--title|-t)(?:=|\\s+)\"((?:\\\\.|[^\"\\\\])*)\"/) { print $1 } elsif (/(?:^|\\s)(?:--title|-t)(?:=|\\s+)\\x27([^\\x27]*)\\x27/) { print $1 } elsif (/(?:^|\\s)(?:--title|-t)(?:=|\\s+)(\\S+)/) { print $1 }'); if [ -n \"$t\" ] && jp \"$t\"; then printf '%s\\n' 'PR タイトルは英語で記述すること (~/.claude/rules/git-workflow.md)。--title を英語に修正すること。PR 本文 (--body) の日本語は問題ない。' >&2; exit 2; fi;; esac; exit 0",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/chezmoi-guard.sh",
+            "timeout": 10
           }
         ]
       },
