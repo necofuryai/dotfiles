@@ -7,7 +7,12 @@ Personal macOS configuration, managed with [chezmoi](https://www.chezmoi.io/).
 ```sh
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply necofuryai
 brew bundle install --file="$HOME/.Brewfile"
+(cd "$(chezmoi source-path)" && uvx pre-commit install)
 ```
+
+The third line is not optional. Git hooks are not cloned, so a fresh machine has
+no local gitleaks gate — without it the first commit reaches this public
+repository checked only by post-push CI.
 
 ## Layout
 
