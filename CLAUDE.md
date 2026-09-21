@@ -69,4 +69,5 @@ only reliable answer to "did I edit the source and not apply it yet?".
 - macOS-only, zsh-only, Apple Silicon. Runtimes (bun/node/go/ruby) are managed by
   mise — goenv and rbenv were removed in 2026-07.
 - Saving `~/.zshrc`, `~/.vimrc`, `~/.textlintrc`, or `~/.Brewfile` in vim auto-runs
-  `chezmoi re-add` (hook in `dot_vimrc`).
+  `chezmoi re-add` and throws if source and target are still out of sync
+  afterwards, which also cancels a pending `:wq` (hook in `dot_vimrc`).

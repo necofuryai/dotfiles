@@ -27,4 +27,6 @@ repository checked only by post-push CI.
 
 Runtimes (bun, node, go, ruby) are managed by [mise](https://mise.jdx.dev/).
 Saving `~/.zshrc`, `~/.vimrc`, `~/.textlintrc`, or `~/.Brewfile` in vim runs
-`chezmoi re-add` automatically.
+`chezmoi re-add` automatically; if source and target are still out of sync
+afterwards it raises an error, which also cancels a `:wq` so the message is
+not lost.

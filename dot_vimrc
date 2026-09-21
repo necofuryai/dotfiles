@@ -96,5 +96,23 @@ set makeprg=npx\ oxlint\ --type-aware\ %
 set errorformat=%f:%l:%c:\ %m
 command! Lint silent make | redraw! | copen
 
-" chezmoi 管理ファイルを保存したら自動で re-add
-autocmd BufWritePost ~/.zshrc,~/.vimrc,~/.textlintrc,~/.Brewfile silent! !chezmoi re-add %:p
+" chezmoi 管理ファイルを保存したら自動で re-add する。
+" テンプレート対象への re-add は exit 0 のまま何もしないので、re-add の
+" 終了コードではなく verify で source と target が揃ったかを確かめる。
+" 失敗は throw で報告する。echoerr だと :wq や ZZ の終了時に代替スクリーン
+" ごと消えるが、throw なら quit が中断されてメッセージが残る。
+function! ChezmoiReAdd() abort
+    let l:path = expand('<afile>:p')
+    let l:target = shellescape(l:path)
+    let l:output = system('chezmoi re-add ' . l:target . ' && chezmoi verify ' . l:target)
+    let l:exit = v:shell_error
+    if l:exit != 0
+        let l:msg = 'chezmoi re-add did not sync ' . l:path . ' (exit ' . l:exit . ')'
+        if !empty(trim(l:output))
+            let l:msg .= ': ' . trim(l:output)
+        endif
+        throw l:msg . ' -- check with chezmoi status'
+    endif
+endfunction
+
+autocmd BufWritePost ~/.zshrc,~/.vimrc,~/.textlintrc,~/.Brewfile call ChezmoiReAdd()
