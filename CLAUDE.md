@@ -27,9 +27,15 @@ This is a **chezmoi source directory** — files here are the source of truth fo
   Code wrote. At the drift prompt answer `skip`, not `overwrite`.
 - **Never run `chezmoi add` on a templated target.** `chezmoi add --template`
   replaces the `.tmpl` body with rendered literals — exit 0, no prompt, no
-  warning — baking a `/Users/<name>/` path into a public repo. Edit the `.tmpl`
-  by hand instead. (`Bash(chezmoi add:*)` is denied in `.claude/settings.json`;
-  the `brew` wrapper's own `chezmoi add` is unaffected by that rule.)
+  warning — baking an absolute home path into this public repo. Edit the
+  `.tmpl` by hand instead. Plain `chezmoi add` on a template prompts first and
+  fails safely in a non-TTY, so `--template` and `--force` are the dangerous
+  forms. This rule is the guard, not a permission deny: `chezmoi add` is
+  allowed, because on a non-templated target it infers the `private_` and
+  `executable_` prefixes from the live file mode, which a plain `cp` into the
+  source tree silently loses — and a 0600 secret copied that way is applied
+  back as 0644. The pre-commit gitleaks hook is the backstop that catches the
+  home path if the dangerous form is ever run.
 
 ## Verify changes
 
