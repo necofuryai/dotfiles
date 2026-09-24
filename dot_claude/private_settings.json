@@ -20,6 +20,7 @@
       "Bash(cat:*)",
       "Bash(cd:*)",
       "Bash(chezmoi add:*)",
+      "Bash(chezmoi apply:*)",
       "Bash(chezmoi diff:*)",
       "Bash(chezmoi git log:*)",
       "Bash(chezmoi git status:*)",
@@ -59,7 +60,6 @@
       "Bash(go tool:*)",
       "Bash(go version:*)",
       "Bash(go vet:*)",
-      "Bash(goenv:*)",
       "Bash(gofumpt:*)",
       "Bash(golangci-lint:*)",
       "Bash(grep:*)",
@@ -104,7 +104,6 @@
       "Bash(wc:*)",
       "Bash(which:*)",
       "Bash(whois:*)",
-      "Bash(wrangler --version:*)",
       "Bash(xcode-select:*)",
       "Bash(xcodebuild:*)",
       "Bash(xcrun:*)",
@@ -299,7 +298,8 @@
         "~/Library/Caches/go-build",
         "~/Library/pnpm",
         "~/.cargo",
-        "~/.rustup"
+        "~/.rustup",
+        "~/.npm"
       ],
       "denyWrite": [
         "~/.cargo/credentials.toml",
@@ -345,7 +345,9 @@
       "sleep",
       "sleep *",
       "claude",
-      "claude *"
+      "claude *",
+      "chezmoi",
+      "chezmoi *"
     ]
   },
   "effortLevel": "xhigh",
@@ -364,7 +366,6 @@
     ],
     "soft_deny": [
       "$defaults",
-      "Bash(chezmoi apply:*)",
       "Bash(wrangler secret:*)"
     ]
   }
