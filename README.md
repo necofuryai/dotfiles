@@ -14,10 +14,15 @@ The third line is not optional. Git hooks are not cloned, so a fresh machine has
 no local gitleaks gate — without it the first commit reaches this public
 repository checked only by post-push CI.
 
+Commits and tags are GPG-signed (`commit.gpgsign` in `dot_gitconfig`), and the
+secret key is not in this repository. Import it with `gpg --import` before the
+first commit; `pinentry-mac` from the Brewfile and the managed
+`~/.gnupg/gpg-agent.conf` handle the passphrase prompt.
+
 ## Layout
 
 - `~/.zshenv` — Keychain-backed secrets, mise shims, minimal PATH (read by every zsh)
-- `~/.zprofile` — Homebrew shellenv, OrbStack (login shells)
+- `~/.zprofile` — Homebrew shellenv, mise shims (login shells)
 - `~/.zshrc` — single consolidated interactive config: completions via Homebrew
   site-functions, plugins, starship prompt, and the `brew` wrapper that keeps
   `~/.Brewfile` in sync
