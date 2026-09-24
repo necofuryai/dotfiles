@@ -33,6 +33,8 @@ export GOPATH="$HOME/go"
 # PATH
 # --------------------------------------------
 path=(
+  # codex CLI bundled with ChatGPT.app (the app creates this symlink);
+  # the Homebrew codex cask is intentionally not installed
   "$HOME/.local/share/codex-desktop/bin"
   "$PNPM_HOME"
   "$HOME/.bun/bin"

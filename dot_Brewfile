@@ -73,5 +73,3 @@ brew "zsh-completions"
 brew "zsh-syntax-highlighting"
 # Sentry command-line tool for error monitoring and debugging
 brew "getsentry/tools/sentry", trusted: true
-# OpenAI's coding agent that runs in your terminal
-cask "codex"
