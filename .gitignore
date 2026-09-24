@@ -1,3 +1,6 @@
 # Claude Code machine-local state
 /.claude/settings.local.json
 /.claude/.cc-writes/
+
+# nvim writes nvim.log to its cwd when it cannot reach its state dir (sandboxed runs)
+nvim.log

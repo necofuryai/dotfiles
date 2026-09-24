@@ -2,5 +2,6 @@ LICENSE
 README.md
 CLAUDE.md
 THIRD-PARTY-LICENSES.md
-.agents
 docs
+# nvim drops nvim.log into its cwd in sandboxed runs; never deploy it
+**/nvim.log
