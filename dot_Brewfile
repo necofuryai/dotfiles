@@ -75,5 +75,3 @@ brew "zsh-syntax-highlighting"
 brew "getsentry/tools/sentry", trusted: true
 # OpenAI's coding agent that runs in your terminal
 cask "codex"
-# Terminal emulator that uses platform-native UI and GPU acceleration
-cask "ghostty"

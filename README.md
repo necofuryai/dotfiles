@@ -23,7 +23,7 @@ repository checked only by post-push CI.
   `~/.Brewfile` in sync
 - `~/.config/shell/secrets.zsh` — loads API keys from the macOS Keychain;
   no plaintext secrets live in this repository
-- Editor & app configs — vim/nvim, Zed, Ghostty, git, mise, starship, textlint
+- Editor & app configs — vim/nvim, Zed, git, mise, starship, textlint
 
 Runtimes (bun, node, go, ruby) are managed by [mise](https://mise.jdx.dev/).
 Saving `~/.zshrc`, `~/.vimrc`, `~/.textlintrc`, or `~/.Brewfile` in vim runs
