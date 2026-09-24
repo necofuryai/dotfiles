@@ -67,7 +67,8 @@ ZLE_REMOVE_SUFFIX_CHARS=$''
 autoload -Uz colors && colors
 
 # fpath must be complete before compinit; Homebrew ships
-# _kubectl, _bun, _gh, etc. in site-functions
+# _kubectl, _gh, _docker, etc. in site-functions. bun comes from mise,
+# so its _bun is not there and is sourced from ~/.bun/_bun at the end
 if [[ -n "$HOMEBREW_PREFIX" ]]; then
   fpath=(
     "$HOMEBREW_PREFIX/share/zsh/site-functions"
