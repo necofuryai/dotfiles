@@ -103,25 +103,6 @@ tgz() {
   env COPYFILE_DISABLE=1 tar zcvf "$1" --exclude=".DS_Store" "${@:2}"
 }
 
-# pdfview requires mutool (mupdf-tools) and timg; install them manually if needed
-pdfview() {
-  local pdf="$1"
-  local dpi="${2:-200}"
-  local pages=$(mutool info "$pdf" 2>/dev/null | grep "^Pages:" | awk '{print $2}')
-
-  if [[ "$pages" -gt 50 ]]; then
-    echo "This PDF has $pages pages. Continue? [y/N]"
-    read -r answer
-    [[ "$answer" != [yY] ]] && return 0
-  fi
-
-  local tmp_dir="/tmp/pdfview_$$"
-  mkdir -p "$tmp_dir"
-  mutool draw -o "$tmp_dir/page%d.png" -r "$dpi" "$pdf"
-  timg -W "$tmp_dir"/page*.png
-  rm -rf "$tmp_dir"
-}
-
 # --------------------------------------------
 # Aliases
 # --------------------------------------------
