@@ -73,7 +73,6 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
     $fpath
   )
 fi
-[[ -d "$HOME/.docker/completions" ]] && fpath=("$HOME/.docker/completions" $fpath)
 
 autoload -Uz compinit && compinit
 
