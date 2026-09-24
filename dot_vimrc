@@ -58,19 +58,22 @@ function! RunFormatAndFix()
 
         echo "oxfmt: OK... "
 
-        " textlint (markdown のみ)
+        " textlint (markdown のみ)。本体とプリセットは npx で同じ node_modules に
+        " 取得する。mise の npm: で別々に入れると、本体がプリセットを解決できない。
         if &filetype == 'markdown'
-            let l:cmd_textlint = 'textlint --config ~/.textlintrc --fix ' . shellescape(l:tempfile)
+            let l:cmd_textlint = 'npx -y -p textlint -p textlint-rule-preset-ja-spacing textlint --config ~/.textlintrc --fix --format json ' . shellescape(l:tempfile)
             let l:textlint_output = system(l:cmd_textlint)
             let l:textlint_exit = v:shell_error
 
-            if l:textlint_exit == 2
-                echoerr "textlint error! " . l:textlint_output
-                return
-            elseif l:textlint_exit == 1
+            " 終了コード 1 は直せない指摘が残ったときのほか、ルール未検出や npx の
+            " 取得失敗でも返る。指摘が残ったときだけ JSON の結果が出力される。
+            if l:textlint_exit == 0
+                echo "Formatted & Fixed (Perfect) ✨"
+            elseif l:textlint_exit == 1 && l:textlint_output =~# '"remainingMessages"'
                 echo "Formatted & Fixed (Issues remain) ⚠️"
             else
-                echo "Formatted & Fixed (Perfect) ✨"
+                echoerr "textlint error! " . l:textlint_output
+                return
             endif
         else
             echo "Formatted (oxfmt) ✨"
