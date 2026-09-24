@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Claude Code statusline: model | current task | directory | git branch/changes | context usage
+// Claude Code statusline: model | directory | git branch/changes | context usage
 //
 // Derived from hooks/gsd-statusline.js in get-shit-done (GSD edition v1.30.0).
 // Upstream: https://github.com/gsd-build/get-shit-done
@@ -34,11 +34,11 @@
 //
 // Local changes: removed the GSD update-check banner and the context-monitor
 // bridge file (only meaningful inside a GSD-managed project); added the git
-// segment; pinned AUTO_COMPACT_BUFFER_PCT instead of reading it from GSD config.
+// segment; pinned AUTO_COMPACT_BUFFER_PCT instead of reading it from GSD config;
+// removed the current-task segment, which read ~/.claude/todos (Claude Code no
+// longer writes that store, so the segment could never render).
 
-const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { execFileSync } = require('child_process');
 
 function git(args, cwd) {
@@ -57,7 +57,6 @@ process.stdin.on('end', () => {
     const data = JSON.parse(input);
     const model = data.model?.display_name || 'Claude';
     const dir = data.workspace?.current_dir || process.cwd();
-    const session = data.session_id || '';
     const remaining = data.context_window?.remaining_percentage;
 
     // Context usage, normalized so 100% = the auto-compact trigger point.
@@ -82,29 +81,6 @@ process.stdin.on('end', () => {
       }
     }
 
-    // Current in-progress task from this session's todo files.
-    let task = '';
-    const claudeDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
-    const todosDir = path.join(claudeDir, 'todos');
-    if (session && fs.existsSync(todosDir)) {
-      try {
-        const files = fs.readdirSync(todosDir)
-          .filter(f => f.startsWith(session) && f.includes('-agent-') && f.endsWith('.json'))
-          .map(f => ({ name: f, mtime: fs.statSync(path.join(todosDir, f)).mtime }))
-          .sort((a, b) => b.mtime - a.mtime);
-
-        if (files.length > 0) {
-          try {
-            const todos = JSON.parse(fs.readFileSync(path.join(todosDir, files[0].name), 'utf8'));
-            const inProgress = todos.find(t => t.status === 'in_progress');
-            if (inProgress) task = inProgress.activeForm || '';
-          } catch (e) {}
-        }
-      } catch (e) {
-        // Never break the statusline on filesystem errors.
-      }
-    }
-
     // Git branch and working-tree changes (ccstatusline-style), silent outside repos.
     let gitInfo = '';
     try {
@@ -125,11 +101,7 @@ process.stdin.on('end', () => {
     }
 
     const dirname = path.basename(dir);
-    if (task) {
-      process.stdout.write(`\x1b[2m${model}\x1b[0m │ \x1b[1m${task}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${gitInfo}${ctx}`);
-    } else {
-      process.stdout.write(`\x1b[2m${model}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${gitInfo}${ctx}`);
-    }
+    process.stdout.write(`\x1b[2m${model}\x1b[0m │ \x1b[2m${dirname}\x1b[0m${gitInfo}${ctx}`);
   } catch (e) {
     // Silent fail on parse errors.
   }
