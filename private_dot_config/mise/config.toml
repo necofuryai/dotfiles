@@ -17,14 +17,3 @@ trust_policy_excludes = ["@mariozechner/clipboard-darwin-x64@0.3.6", "@mariozech
 
 [settings]
 idiomatic_version_file_enable_tools = ["ruby", "go", "node"]
-
-# TEMPORARY (2026-09-20): disable automatic cache pruning.
-# `mise cache prune` follows symlinks out of the cache and deletes files inside
-# installed tools; it destroyed npm:@opengsd/gsd-pi here on 2026-09-20.
-#   report: https://github.com/jdx/mise/discussions/13420
-#   fix:    https://github.com/jdx/mise/pull/13424  (open as of 2026-09-20)
-# "0s" stops auto_prune (which fires on ~1% of all mise invocations). It does NOT
-# protect a manually run `mise cache prune`, which falls back to 30d — avoid that
-# command until the fix ships. Use `mise cache clear` to reclaim space instead.
-# REVERT (delete this line) once mise ships the #13424 fix.
-cache_prune_age = "0s"
