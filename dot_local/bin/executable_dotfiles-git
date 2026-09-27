@@ -14,6 +14,12 @@
 #                        -n <N>|-<N>|--format=<fmt>|--pretty=<fmt>]... [<rev>]... [-- <path>...]
 #   dotfiles-git add    <path>...
 #   dotfiles-git commit -F <absolute path to a message file>
+#   dotfiles-git push
+#
+# push takes no arguments: it pushes main to origin, never forced. Run inside
+# the sandbox, `git -C <this repo> push` still reaches the remote but cannot
+# update refs/remotes/origin/main or store the credential, which leaves the
+# tracking ref stale after every push.
 #
 # A path is relative to the repository root and may not be absolute, contain
 # `..`, or start with `-` or `:`. A revision is HEAD, origin/main or a hex
@@ -56,7 +62,7 @@ rev_ok() {
     grep -qE '^(HEAD|origin/main|[0-9a-f]{7,40})([~^][0-9]*)*(\.\.(HEAD|origin/main|[0-9a-f]{7,40})([~^][0-9]*)*)?$'
 }
 
-[ $# -ge 1 ] || die 'usage: dotfiles-git status|diff|log|add|commit ...'
+[ $# -ge 1 ] || die 'usage: dotfiles-git status|diff|log|add|commit|push ...'
 sub=$1
 shift
 
@@ -121,8 +127,12 @@ case "$sub" in
     case "$2" in /*) ;; *) die "commit: -F needs an absolute path: $2" ;; esac
     { [ -f "$2" ] && [ -r "$2" ]; } || die "commit: not a readable file: $2"
     ;;
+  push)
+    [ $# -eq 0 ] || die 'push: takes no arguments (it pushes main to origin)'
+    set -- origin main
+    ;;
   *)
-    die "not allowed: $sub (use status, diff, log, add or commit)"
+    die "not allowed: $sub (use status, diff, log, add, commit or push)"
     ;;
 esac
 

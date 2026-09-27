@@ -25,6 +25,7 @@
 0::add dot_claude/private_settings.json CLAUDE.md
 0::add .
 0::commit -F @MSG@
+0::push
 #
 # --- no subcommand, or git options before it ---
 2::
@@ -34,9 +35,17 @@
 2::--work-tree=/tmp status
 2::-- status
 #
-# --- subcommands outside the allowlist ---
-2::push
+# --- push takes no arguments ---
 2::push origin main
+2::push origin
+2::push --force
+2::push -f
+2::push --tags
+2::push --no-verify
+2::push origin HEAD:refs/heads/x
+#
+# --- subcommands outside the allowlist ---
+2::fetch
 2::reset --hard
 2::rebase -i HEAD~2
 2::checkout main
