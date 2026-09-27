@@ -25,6 +25,7 @@
       "Bash(chezmoi git log:*)",
       "Bash(chezmoi git status:*)",
       "Bash(chezmoi managed:*)",
+      "Bash(chezmoi re-add:*)",
       "Bash(chezmoi source-path:*)",
       "Bash(chezmoi status:*)",
       "Bash(chezmoi update:*)",
@@ -300,7 +301,12 @@
       ],
       "denyWrite": [
         "~/.cargo/credentials.toml",
-        "~/.cargo/credentials"
+        "~/.cargo/credentials",
+        "~/.config/chezmoi/chezmoi.toml",
+        "~/.config/chezmoi/chezmoi.yaml",
+        "~/.config/chezmoi/chezmoi.yml",
+        "~/.config/chezmoi/chezmoi.json",
+        "~/.config/chezmoi/chezmoi.jsonc"
       ]
     },
     "enableWeakerNetworkIsolation": true,
