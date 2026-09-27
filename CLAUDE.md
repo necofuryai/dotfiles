@@ -47,6 +47,24 @@ This is a **chezmoi source directory** — files here are the source of truth fo
   Claude (a permission pattern is a prefix match and cannot see a flag); the
   pre-commit gitleaks hook is the backstop that catches the home path if the
   dangerous form is ever run by hand.
+- **Run chezmoi from Claude as a command of its own.** `chezmoi` is in
+  `sandbox.excludedCommands`, but Claude Code exempts a compound command only
+  when every part of it matches: `chezmoi re-add <target>` and
+  `chezmoi status && chezmoi diff` run outside the sandbox, while
+  `cd ~ && chezmoi apply` or `chezmoi … | head` run inside it and cannot write
+  targets or, from a session opened elsewhere, this repository
+  (`open …/.config.toml<digits>: operation not permitted`).
+- **The guard also blocks path redirection.** chezmoi runs outside the sandbox
+  and `Bash(chezmoi status:*)`-style allow rules cannot see a flag, so a
+  config, source or data file written from inside the sandbox could make it
+  run hooks or template `output` calls outside it. `chezmoi-guard.sh`
+  therefore also blocks `-c`/`--config`, `-S`/`--source`, `-D`/`--destination`,
+  `-W`/`--working-tree`, `-o`/`--output`, `--persistent-state`, `--cache`,
+  `--override-data(-file)` and the `execute-template`, `cd` and `edit`
+  subcommands, and the sandbox denies writes to
+  `~/.config/chezmoi/chezmoi.{toml,yaml,yml,json,jsonc}`. The guard reads the
+  whole Bash command line, so pass a commit message that names these flags
+  with `git commit -F <file>`.
 
 ## Verify changes
 
@@ -56,6 +74,10 @@ chezmoi diff          # review what apply would do
 chezmoi apply         # then confirm chezmoi status is empty
 zsh -i -c exit        # a fresh shell must start silently (~0.1s)
 ```
+
+After editing `dot_claude/hooks/executable_chezmoi-guard.sh`, run
+`sh .claude/tests/chezmoi-guard/run.sh` (needs jq) and add a blocking case and
+a passing neighbour to its `cases.txt` for every rule you change.
 
 `chezmoi status` cannot tell you which side moved, so read it with this table
 (verified on v2.72.2):
