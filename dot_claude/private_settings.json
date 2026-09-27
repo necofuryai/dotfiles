@@ -33,7 +33,6 @@
       "Bash(cp:*)",
       "Bash(curl:*)",
       "Bash(cut:*)",
-      "Bash(dart:*)",
       "Bash(date:*)",
       "Bash(defaults read:*)",
       "Bash(diff:*)",
@@ -48,9 +47,6 @@
       "Bash(echo:*)",
       "Bash(file:*)",
       "Bash(find:*)",
-      "Bash(flutter:*)",
-      "Bash(gh:*)",
-      "Bash(git:*)",
       "Bash(go build:*)",
       "Bash(go clean:*)",
       "Bash(go doc:*)",
@@ -71,14 +67,11 @@
       "Bash(lsof:*)",
       "Bash(make:*)",
       "Bash(migrate:*)",
-      "Bash(mise:*)",
       "Bash(mkdir:*)",
       "Bash(mv:*)",
       "Bash(open:*)",
       "Bash(paste:*)",
       "Bash(plutil:*)",
-      "Bash(pnpm:*)",
-      "Bash(pod:*)",
       "Bash(printenv:*)",
       "Bash(ps:*)",
       "Bash(pwd)",
@@ -91,7 +84,6 @@
       "Bash(sleep:*)",
       "Bash(sort:*)",
       "Bash(stat:*)",
-      "Bash(swift:*)",
       "Bash(tail:*)",
       "Bash(tar:*)",
       "Bash(tee:*)",
@@ -106,8 +98,6 @@
       "Bash(which:*)",
       "Bash(whois:*)",
       "Bash(xcode-select:*)",
-      "Bash(xcodebuild:*)",
-      "Bash(xcrun:*)",
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:apify.com)",
       "WebFetch(domain:arxiv.org)",
@@ -171,7 +161,13 @@
       "Bash(go install:*)",
       "Bash(brew install:*)",
       "Bash(brew upgrade:*)",
-      "Bash(brew uninstall:*)"
+      "Bash(brew uninstall:*)",
+      "Bash(chezmoi apply:*)",
+      "Bash(chezmoi update:*)",
+      "Bash(dotfiles-git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(git merge:*)",
+      "Bash(git config:*)"
     ]
   },
   "model": "opus[1m]",
@@ -293,7 +289,6 @@
     "filesystem": {
       "allowWrite": [
         "~/.config/chezmoi",
-        "~/.gnupg",
         "~/go/pkg/mod",
         "~/Library/Caches/go-build",
         "~/Library/pnpm/store",
@@ -353,7 +348,9 @@
       "claude",
       "claude *",
       "chezmoi",
-      "chezmoi *"
+      "chezmoi *",
+      "dotfiles-git",
+      "dotfiles-git *"
     ]
   },
   "effortLevel": "xhigh",
@@ -374,5 +371,6 @@
       "$defaults",
       "Bash(wrangler secret:*)"
     ]
-  }
+  },
+  "switchModelsOnFlag": false
 }
