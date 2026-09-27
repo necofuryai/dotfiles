@@ -39,6 +39,22 @@
 2::chezmoi execute-template x
 2::chezmoi cd
 2::chezmoi edit ~/.zshrc
+# --- chezmoi git runs any git command outside the sandbox: must block ---
+2::chezmoi git -- push --force
+2::chezmoi git -- reset --hard HEAD~1
+2::chezmoi git -- -c alias.x=!true x
+2::chezmoi git log --oneline -3
+2::chezmoi git log -p
+2::chezmoi git status
+2::chezmoi git
+2::chezmoi -v git -- push
+2::chezmoi --color false git -- push
+2::chezmoi --use-builtin-git=false git -- push
+2::chezmoi "git" -- push
+2::chezmoi g""it -- push
+2::chezmoi	git -- push
+2::chezmoi \<NL>git -- push --force
+2::timeout 5 chezmoi git -- push
 # --- the original data-loss rules: must block ---
 2::chezmoi add -T x
 2::chezmoi add --template x
@@ -58,8 +74,6 @@
 0::chezmoi status --color=false
 0::chezmoi apply --source-path x
 0::chezmoi status --config-format toml
-0::chezmoi git log --oneline -3
-0::chezmoi git log -p
 0::chezmoi apply -v
 0::chezmoi apply --dry-run --verbose
 0::chezmoi add ~/.zshrc
@@ -69,6 +83,16 @@
 0::chezmoi --version
 0::chezmoi status 2>&1
 0::chezmoi status | head -1
+# --- git that is not the chezmoi subcommand: must allow ---
+0::chezmoi add ~/dev/git
+0::chezmoi re-add ~/.config/git/ignore
+0::chezmoi source-path ~/.gitconfig
+0::chezmoi generate git-commit-message
+0::chezmoi --use-builtin-git=true status
+0::chezmoi status && git status
+0::chezmoi managed | grep git
+0::chezmoi status<NL>git log
+0::git log -- dot_config/git
 # --- a bare newline separates commands: must allow ---
 0::chezmoi status<NL>echo --config x
 0::chezmoi apply<NL>git push --force
