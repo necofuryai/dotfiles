@@ -21,8 +21,6 @@
       "Bash(cd:*)",
       "Bash(chezmoi add:*)",
       "Bash(chezmoi diff:*)",
-      "Bash(chezmoi git log:*)",
-      "Bash(chezmoi git status:*)",
       "Bash(chezmoi managed:*)",
       "Bash(chezmoi re-add:*)",
       "Bash(chezmoi source-path:*)",
