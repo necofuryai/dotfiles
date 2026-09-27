@@ -167,7 +167,8 @@
       "Bash(dotfiles-git commit:*)",
       "Bash(git tag:*)",
       "Bash(git merge:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(git -C:*)"
     ]
   },
   "model": "opus[1m]",
