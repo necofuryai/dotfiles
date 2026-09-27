@@ -39,6 +39,9 @@
 2::chezmoi execute-template x
 2::chezmoi cd
 2::chezmoi edit ~/.zshrc
+2::chezmoi edit help
+2::chezmoi edit x -- --help
+2::chezmoi help edit -c x
 # --- the original data-loss rules: must block ---
 2::chezmoi add -T x
 2::chezmoi add --template x
@@ -48,10 +51,71 @@
 2::chezmoi apply --force
 2::chezmoi --force apply
 2::chezmoi update --force
+2::chezmoi manage -T x
+2::chezmoi init -a --force repo
+2::chezmoi init --apply=true --force repo
+2::chezmoi -vS /tmp/x status
+2::chezmoi {edit,status} x
+2::chezmoi apply --{force,verbose}
+2::ch\<NL>ezmoi apply --force
+2::=chezmoi apply --force
+# --- behind an assignment or a wrapper: must block ---
+2::FOO=1 chezmoi status -c x
+2::env chezmoi apply --force
+2::env FOO=1 chezmoi edit x
+2::timeout 5 chezmoi edit x
+2::timeout -s KILL 5 chezmoi edit x
+2::nice -n 5 chezmoi cd
+2::nohup chezmoi apply --force
+2::time chezmoi apply --force
+2::command chezmoi edit x
+2::exec chezmoi edit x
+2::exec -a foo chezmoi edit x
+2::timeout --signal KILL 5 chezmoi edit x
+2::/usr/bin/env chezmoi apply --force
+2::env -C /tmp chezmoi apply --force
+2::env -P /opt/homebrew/bin chezmoi edit x
+2::env -S 'chezmoi edit x'
+2::noglob chezmoi apply --force
+2::nocorrect chezmoi edit x
+2::repeat 1 chezmoi edit x
+2::coproc chezmoi edit x
+# --- inside substitutions and compound commands: must block ---
+2::git diff -- "$(chezmoi status -c x)"
+2::echo "$(chezmoi status -c x)"
+2::X=$(chezmoi edit x) true
+2::diff <(chezmoi cat ~/.zshrc -S x) ~/.zshrc
+2::cat <<EOF<NL>$(chezmoi status -c x)<NL>EOF
+2::if true; then chezmoi edit x; fi
+2::for f in a; do chezmoi cd; done
+2::! chezmoi edit x
+2::{ chezmoi edit x; }
+2::(chezmoi cd)
+2::print -l ${(f)"$(chezmoi managed -S x)"}
+# --- a string run by a shell or eval: must block ---
+2::bash -c "chezmoi edit x"
+2::zsh -c 'chezmoi apply --force'
+2::bash -lc 'git status; chezmoi cd'
+2::env sh -c 'chezmoi edit x'
+2::sh -c 'sh -c "chezmoi cd"'
+2::sh -c 'chezmoi edit "$1"' sh x
+2::bash -o pipefail -c 'chezmoi apply --force'
+2::bash -euo pipefail -c 'chezmoi edit x'
+2::zsh -fc 'chezmoi cd'
+2::eval 'chezmoi apply --force'
+2::eval chezmoi apply --force
+2::eval chezmoi status -c x
+2::builtin eval 'chezmoi edit x'
+# --- mentions chezmoi but does not parse: must block ---
+2::grep -n 'chezmoi edit CLAUDE.md
+# shfmt 3.14 rejects this valid zsh short loop, so it fails closed too. This
+# records a shfmt limit, not a rule: when shfmt parses it, expect 0 here.
+2::for f (dot_zshrc dot_vimrc) grep -c chezmoi $f
 # --- must allow ---
 0::chezmoi status
 0::chezmoi re-add /tmp/example/config.toml
 0::chezmoi re-add ~/.claude/settings.json
+0::chezmoi apply ~/.claude/hooks/chezmoi-guard.sh
 0::chezmoi diff
 0::chezmoi managed
 0::chezmoi source-path ~/.zshrc
@@ -66,6 +130,9 @@
 0::chezmoi managed -p absolute
 0::chezmoi status -x scripts
 0::chezmoi edit-config
+0::chezmoi help edit
+0::chezmoi edit --help
+0::chezmoi cd -h
 0::chezmoi --version
 0::chezmoi status 2>&1
 0::chezmoi status | head -1
@@ -82,3 +149,42 @@
 0::sed -n 1,5p ~/.local/share/chezmoi/CLAUDE.md
 0::grep -c chezmoi /tmp/x
 0::echo hello
+# --- chezmoi as an argument, in a comment or in a heredoc body: must allow ---
+0::grep -n 'chezmoi edit' CLAUDE.md
+0::rg chezmoi -o README.md
+0::timeout 30 rg chezmoi -o README.md
+0::env grep -rn chezmoi -o x
+0::git log --grep='chezmoi edit'
+0::git commit -m "docs: explain chezmoi cd"
+0::git commit -m "docs: chezmoi's --config"
+0::gh pr create --title "fix: guard chezmoi apply --force" --body x
+0::echo 'FOO=1 chezmoi status -c x'
+0::echo "chezmoi status -c x"
+0::printf '%s\n' "chezmoi --config x" | grep -c config
+0::sh -c 'echo chezmoi edit'
+0::command -v chezmoi
+0::chezmoi status  # then chezmoi edit later
+0::chezmoi status # -c x
+0::cat <<'EOF'<NL>chezmoi --config x<NL>EOF
+0::cat <<EOF<NL>chezmoi edit x<NL>EOF
+0::chezmoi git log --grep "chezmoi edit --config"
+0::print -l ${(f)"$(chezmoi managed)"}
+# --- operands of a script, option values and env -C: must allow ---
+0::sh -c 'for f; do grep -c chezmoi "$f"; done' sh dot_zshrc dot_vimrc
+0::sh -c 'grep -nF -- "$1" CLAUDE.md' sh 'chezmoi status; chezmoi edit'
+0::bash -c 'git commit -m "$1"' _ "It's fixed: chezmoi status"
+0::bash -o pipefail -c 'if rg -q "chezmoi edit" CLAUDE.md; then echo found; fi'
+0::bash scripts/notify.sh "chezmoi's apply finished"
+0::bash -c 'd=~/.local/share/chezmoi; echo "${d^^}"'
+0::eval 'echo chezmoi edit'
+0::env -C ~/.local/share/chezmoi rg -n -- --config .
+0::env -C ~/.local/share/chezmoi grep -c chezmoi CLAUDE.md
+0::env -S 'echo chezmoi edit'
+0::noglob chezmoi status
+# --- clusters that end at a flag taking a value, aliases, braces: must allow ---
+0::chezmoi managed -pabsolute
+0::chezmoi status -xscripts
+0::chezmoi managed -iscripts -fjson
+0::chezmoi manage ~/.zshrc
+0::chezmoi init -a repo
+0::chezmoi re-add ~/.{zshrc,vimrc}

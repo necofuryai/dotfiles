@@ -62,9 +62,12 @@ This is a **chezmoi source directory** — files here are the source of truth fo
   `-W`/`--working-tree`, `-o`/`--output`, `--persistent-state`, `--cache`,
   `--override-data(-file)` and the `execute-template`, `cd` and `edit`
   subcommands, and the sandbox denies writes to
-  `~/.config/chezmoi/chezmoi.{toml,yaml,yml,json,jsonc}`. The guard reads the
-  whole Bash command line, so pass a commit message that names these flags
-  with `git commit -F <file>`.
+  `~/.config/chezmoi/chezmoi.{toml,yaml,yml,json,jsonc}`. The guard parses
+  the command with shfmt and checks only the words of chezmoi invocations, so
+  a grep pattern, a commit message, a comment or a heredoc body that names
+  these flags passes. A command that mentions chezmoi but that shfmt cannot
+  parse, such as zsh's short `for f (a b) cmd` loop, is blocked; write it in
+  the long form or split it into simpler commands.
 
 ## Verify changes
 
@@ -76,8 +79,9 @@ zsh -i -c exit        # a fresh shell must start silently (~0.1s)
 ```
 
 After editing `dot_claude/hooks/executable_chezmoi-guard.sh`, run
-`sh .claude/tests/chezmoi-guard/run.sh` (needs jq) and add a blocking case and
-a passing neighbour to its `cases.txt` for every rule you change.
+`sh .claude/tests/chezmoi-guard/run.sh` (needs jq and shfmt) and add a
+blocking case and a passing neighbour to its `cases.txt` for every rule you
+change.
 
 `chezmoi status` cannot tell you which side moved, so read it with this table
 (verified on v2.72.2):

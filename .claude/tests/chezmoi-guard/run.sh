@@ -7,12 +7,8 @@
 # another copy (for example the deployed ~/.claude/hooks/chezmoi-guard.sh).
 # Each line of cases.txt is "<expected exit>::<command>" (2 = blocked,
 # 0 = allowed); blank lines and # comments are skipped. <NL> in a command
-# stands for a newline, so a case can hold a multi-line command. Needs jq,
-# which the guard itself also uses.
-#
-# Run it by path, as above. The guard reads the whole Bash command line, so a
-# test command that spells out the cases inline would be blocked by the
-# deployed guard before it ran.
+# stands for a newline, so a case can hold a multi-line command. Needs jq and
+# /opt/homebrew/bin/shfmt, which the guard itself also uses.
 
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../../.." && pwd)
@@ -20,6 +16,7 @@ guard=${1:-$root/dot_claude/hooks/executable_chezmoi-guard.sh}
 cases=$here/cases.txt
 
 command -v jq >/dev/null || { echo 'run.sh: jq is required' >&2; exit 1; }
+[ -x /opt/homebrew/bin/shfmt ] || { echo 'run.sh: /opt/homebrew/bin/shfmt is required' >&2; exit 1; }
 [ -f "$guard" ] || { echo "run.sh: guard not found: $guard" >&2; exit 1; }
 
 pass=0
