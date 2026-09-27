@@ -63,13 +63,8 @@ This is a **chezmoi source directory** — files here are the source of truth fo
   `--override-data(-file)` and the `execute-template`, `cd` and `edit`
   subcommands, and the sandbox denies writes to
   `~/.config/chezmoi/chezmoi.{toml,yaml,yml,json,jsonc}`. The guard reads the
-  whole Bash command line, heredoc bodies and comments included, so write a
-  commit message that names these flags with the Write tool and pass it with
-  `git commit -F <file>`.
-- **The guard blocks `chezmoi git`.** It runs any git command outside the
-  sandbox, and the `git push` ask and `git reset` deny rules never match
-  `chezmoi git -- push`. Use `dotfiles-git` (status, diff, log, add, commit,
-  push) or plain `git` from a session opened in this repository.
+  whole Bash command line, so pass a commit message that names these flags
+  with `git commit -F <file>`.
 
 ## Verify changes
 
