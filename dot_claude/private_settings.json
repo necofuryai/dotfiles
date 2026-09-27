@@ -296,7 +296,7 @@
         "~/.gnupg",
         "~/go/pkg/mod",
         "~/Library/Caches/go-build",
-        "~/Library/pnpm",
+        "~/Library/pnpm/store",
         "~/.cargo",
         "~/.rustup",
         "~/.npm"
@@ -304,6 +304,7 @@
       "denyWrite": [
         "~/.cargo/credentials.toml",
         "~/.cargo/credentials",
+        "~/.cargo/bin",
         "~/.config/chezmoi/chezmoi.toml",
         "~/.config/chezmoi/chezmoi.yaml",
         "~/.config/chezmoi/chezmoi.yml",
