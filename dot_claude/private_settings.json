@@ -45,6 +45,8 @@
       "Bash(echo:*)",
       "Bash(file:*)",
       "Bash(find:*)",
+      "Bash(gh:*)",
+      "Bash(git:*)",
       "Bash(go build:*)",
       "Bash(go clean:*)",
       "Bash(go doc:*)",
@@ -163,10 +165,10 @@
       "Bash(chezmoi apply:*)",
       "Bash(chezmoi update:*)",
       "Bash(dotfiles-git commit:*)",
-      "Bash(git tag:*)",
-      "Bash(git merge:*)",
-      "Bash(git config:*)",
-      "Bash(git -C:*)",
+      "Bash(git -C * push)",
+      "Bash(git -C * push *)",
+      "Bash(gh extension:*)",
+      "Bash(gh alias:*)",
       "Bash(dotfiles-git push:*)"
     ]
   },
