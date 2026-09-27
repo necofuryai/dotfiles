@@ -1,0 +1,83 @@
+# Cases for run.sh: "<expected exit>::<arguments>" (0 = accepted, 2 = rejected).
+# Add a rejected case and an accepted neighbour for every rule you change.
+#
+# --- accepted ---
+0::status
+0::status --short
+0::status -s -b
+0::status --porcelain
+0::diff
+0::diff --stat
+0::diff --cached --name-only
+0::diff --staged --name-status
+0::diff HEAD
+0::diff HEAD~1 -- dot_zshrc
+0::diff 9c48196 HEAD -- dot_claude/private_settings.json
+0::log --oneline -n 5
+0::log --oneline -5
+0::log --format=%h%x20%G?%x20%s -3
+0::log --show-signature -1
+0::log origin/main..HEAD --oneline
+0::log 9c48196 -1
+0::log --stat -2 -- CLAUDE.md
+0::add dot_zshrc
+0::add .claude/tests/dotfiles-git/cases.txt
+0::add dot_claude/private_settings.json CLAUDE.md
+0::add .
+0::commit -F @MSG@
+#
+# --- no subcommand, or git options before it ---
+2::
+2::-C /tmp status
+2::-c core.pager=cat log
+2::--git-dir=/tmp/x status
+2::--work-tree=/tmp status
+2::-- status
+#
+# --- subcommands outside the allowlist ---
+2::push
+2::push origin main
+2::reset --hard
+2::rebase -i HEAD~2
+2::checkout main
+2::config core.fsmonitor x
+2::show HEAD
+2::stash
+2::clean -fd
+#
+# --- options outside the allowlist ---
+2::status -uall
+2::status --porcelain=v2
+2::diff --output=/tmp/x
+2::diff --ext-diff
+2::diff --textconv
+2::diff main
+2::log --output=/tmp/x
+2::log -n
+2::log -n abc
+2::log -5x
+2::log -S foo
+2::log --all
+#
+# --- paths outside the repository ---
+2::diff -- /etc/passwd
+2::diff -- ../x
+2::log -- a/../../x
+2::add
+2::add /etc/passwd
+2::add ../x
+2::add a/../../x
+2::add -A
+2::add -f dot_zshrc
+2::add :/
+2::add :(top)x
+#
+# --- commit forms other than -F <absolute file> ---
+2::commit
+2::commit -m msg
+2::commit -F relative.txt
+2::commit -F /nonexistent/message
+2::commit -F -
+2::commit -F @MSG@ --amend
+2::commit --amend -F @MSG@
+2::commit -S -F @MSG@

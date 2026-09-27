@@ -1,0 +1,137 @@
+#!/bin/sh
+# git for the chezmoi source repository, and nothing else.
+#
+# Claude Code never exempts `git -C <path>`, `git -c ...`, `--git-dir` or
+# `--work-tree` from its Bash sandbox (a built-in rule, not a setting), so a
+# session opened outside this repository cannot commit here: `.git/index.lock:
+# Operation not permitted`. This wrapper is listed in sandbox.excludedCommands
+# instead. The repository is fixed and only this allowlist is accepted:
+#
+#   dotfiles-git status [-s|--short|-b|--branch|--porcelain]...
+#   dotfiles-git diff   [--stat|--cached|--staged|--name-only|--name-status|--no-color]...
+#                       [<rev>]... [-- <path>...]
+#   dotfiles-git log    [--oneline|--stat|-p|--show-signature|--decorate|--no-color|
+#                        -n <N>|-<N>|--format=<fmt>|--pretty=<fmt>]... [<rev>]... [-- <path>...]
+#   dotfiles-git add    <path>...
+#   dotfiles-git commit -F <absolute path to a message file>
+#
+# A path is relative to the repository root and may not be absolute, contain
+# `..`, or start with `-` or `:`. A revision is HEAD, origin/main or a hex
+# object name, optionally with ~N/^N and one `..` range. Exit 2 means rejected.
+#
+# PATH is fixed before any external command runs, and git is run by absolute
+# path under `env -i`, so neither a PATH entry nor a GIT_* / XDG_* variable can
+# redirect it. That is depth, not the boundary: Claude Code already runs an
+# env-prefixed or path-qualified invocation inside the sandbox. The wrapper
+# cannot protect its own name, though. A same-named file in a sandbox-writable
+# directory that precedes ~/.local/bin on PATH would win, so keep such
+# directories off PATH.
+#
+# DOTFILES_GIT_DRY_RUN=1 prints the git command instead of running it, for the
+# test suite in .claude/tests/dotfiles-git/ of the chezmoi source repository.
+
+PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+set -eu
+
+git=/opt/homebrew/bin/git
+user=$(id -un)
+home=$(eval "printf '%s' ~$user")
+repo=$home/.local/share/chezmoi
+
+die() {
+  printf 'dotfiles-git: %s\n' "$1" >&2
+  exit 2
+}
+
+path_ok() {
+  case "$1" in
+    '' | /* | -* | :* | .. | ../* | */.. | */../*) return 1 ;;
+  esac
+  return 0
+}
+
+rev_ok() {
+  printf '%s\n' "$1" |
+    grep -qE '^(HEAD|origin/main|[0-9a-f]{7,40})([~^][0-9]*)*(\.\.(HEAD|origin/main|[0-9a-f]{7,40})([~^][0-9]*)*)?$'
+}
+
+[ $# -ge 1 ] || die 'usage: dotfiles-git status|diff|log|add|commit ...'
+sub=$1
+shift
+
+case "$sub" in
+  status)
+    for a do
+      case "$a" in
+        -s | --short | -b | --branch | --porcelain) ;;
+        *) die "status: not allowed: $a" ;;
+      esac
+    done
+    ;;
+  diff)
+    paths=0
+    for a do
+      if [ "$paths" = 1 ]; then
+        path_ok "$a" || die "diff: not a repository path: $a"
+        continue
+      fi
+      case "$a" in
+        --) paths=1 ;;
+        --stat | --cached | --staged | --name-only | --name-status | --no-color) ;;
+        *) rev_ok "$a" || die "diff: not allowed: $a" ;;
+      esac
+    done
+    ;;
+  log)
+    paths=0
+    count=0
+    for a do
+      if [ "$count" = 1 ]; then
+        case "$a" in '' | *[!0-9]*) die "log: -n needs a number: $a" ;; esac
+        count=0
+        continue
+      fi
+      if [ "$paths" = 1 ]; then
+        path_ok "$a" || die "log: not a repository path: $a"
+        continue
+      fi
+      case "$a" in
+        --) paths=1 ;;
+        --oneline | --stat | -p | --show-signature | --decorate | --no-color) ;;
+        -n) count=1 ;;
+        --format=* | --pretty=*) ;;
+        -[0-9]*)
+          case "${a#-}" in *[!0-9]*) die "log: not allowed: $a" ;; esac
+          ;;
+        *) rev_ok "$a" || die "log: not allowed: $a" ;;
+      esac
+    done
+    [ "$count" = 0 ] || die 'log: -n needs a number'
+    ;;
+  add)
+    [ $# -ge 1 ] || die 'add: name at least one path'
+    for a do
+      path_ok "$a" || die "add: not a repository path: $a"
+    done
+    set -- -- "$@"
+    ;;
+  commit)
+    { [ $# -eq 2 ] && [ "$1" = -F ]; } || die 'commit: only "commit -F <file>" is accepted'
+    case "$2" in /*) ;; *) die "commit: -F needs an absolute path: $2" ;; esac
+    { [ -f "$2" ] && [ -r "$2" ]; } || die "commit: not a readable file: $2"
+    ;;
+  *)
+    die "not allowed: $sub (use status, diff, log, add or commit)"
+    ;;
+esac
+
+if [ "${DOTFILES_GIT_DRY_RUN:-}" = 1 ]; then
+  printf '%s -C %s %s' "$git" "$repo" "$sub"
+  for a do printf ' %s' "$a"; done
+  printf '\n'
+  exit 0
+fi
+
+exec /usr/bin/env -i HOME="$home" PATH="$PATH" LANG=en_US.UTF-8 TERM=dumb \
+  "$git" -C "$repo" "$sub" "$@"
