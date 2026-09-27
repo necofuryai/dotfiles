@@ -24,8 +24,11 @@
 #   chezmoi execute-template / cd / edit
 #       run a template, a shell or an editor outside the sandbox.
 #
-# Quotes and backslashes are stripped first, so "--config" and ch""ezmoi are
-# seen. A segment starts where `chezmoi` stands in command position (line
+# A backslash-newline continuation is joined into a space first and any other
+# newline becomes `;`: Claude Code still runs `chezmoi \<newline>--config x`
+# outside the sandbox, while grep reads one line at a time. Quotes and
+# backslashes are stripped next, so "--config" and ch""ezmoi are seen. A
+# segment starts where `chezmoi` stands in command position (the
 # start, whitespace, ; & | ( ` =, or a .../bin/ path) and runs up to the next
 # ; & |. A path that only contains the word, such as the -C argument of
 # `git -C ~/.local/share/chezmoi log -S foo`, is not a segment. Global flags
@@ -38,7 +41,9 @@
 # rules. Exit 2 blocks the call; stderr reaches Claude.
 
 input=$(cat)
-cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty' | tr -d "\"'\\\\")
+cmd=$(printf '%s' "$input" |
+      jq -r '.tool_input.command // empty | gsub("\\\\\n"; " ") | gsub("\n"; ";")' |
+      tr -d "\"'\\\\")
 [ -n "$cmd" ] || exit 0
 case "$cmd" in *chezmoi*) ;; *) exit 0 ;; esac
 

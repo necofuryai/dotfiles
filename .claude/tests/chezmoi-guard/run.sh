@@ -6,8 +6,9 @@
 # Tests the source copy in this repository by default; pass a path to test
 # another copy (for example the deployed ~/.claude/hooks/chezmoi-guard.sh).
 # Each line of cases.txt is "<expected exit>::<command>" (2 = blocked,
-# 0 = allowed); blank lines and # comments are skipped. Needs jq, which the
-# guard itself also uses.
+# 0 = allowed); blank lines and # comments are skipped. <NL> in a command
+# stands for a newline, so a case can hold a multi-line command. Needs jq,
+# which the guard itself also uses.
 #
 # Run it by path, as above. The guard reads the whole Bash command line, so a
 # test command that spells out the cases inline would be blocked by the
@@ -27,7 +28,8 @@ while IFS= read -r line; do
   case "$line" in ''|\#*) continue ;; esac
   exp=${line%%::*}
   cmd=${line#*::}
-  jq -n --arg c "$cmd" '{tool_input:{command:$c}}' | sh "$guard" >/dev/null 2>&1
+  jq -n --arg c "$cmd" '{tool_input:{command:($c | gsub("<NL>"; "\n"))}}' |
+    sh "$guard" >/dev/null 2>&1
   got=$?
   if [ "$got" = "$exp" ]; then
     pass=$((pass + 1))
