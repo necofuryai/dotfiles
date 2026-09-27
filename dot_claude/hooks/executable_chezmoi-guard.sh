@@ -29,7 +29,11 @@
 #       Code's refusal to exempt `git -c` / `git -C` covers a bare git only,
 #       so `chezmoi git -- -c alias.x=!cmd x` would run a shell command of
 #       the caller's choosing. dotfiles-git covers the reads and the commit
-#       path.
+#       path. A word that could glob into `git` (gi?, g*, gi[t]) is blocked
+#       as well: Claude Code still runs such a call outside the sandbox, and
+#       a file named git in the working directory would complete it. Each
+#       word holding * ? or [ is matched against `git` as a case pattern
+#       (set -f keeps it from expanding against real files here).
 #
 # A backslash-newline continuation is joined into a space first and any other
 # newline becomes `;`: Claude Code still runs `chezmoi \<newline>--config x`
@@ -83,6 +87,18 @@ for seg in $(printf '%s\n' "$cmd" |
   if printf '%s' "$seg" | grep -qE '(^|[[:space:]])git([[:space:]]|$)'; then
     block 'chezmoi git runs any git command outside the sandbox, past the git ask and deny rules (they match "git push", not "chezmoi git -- push"). Use dotfiles-git status/diff/log/add/commit/push, or plain git from a session opened in the chezmoi source repository.'
   fi
+  IFS=' 	'
+  for w in $seg; do
+    case $w in
+      *[*?[]*)
+        case git in
+          $w) block "chezmoi with the glob $w, which a file named git would expand into chezmoi git outside the sandbox. Spell the argument out." ;;
+        esac
+        ;;
+    esac
+  done
+  IFS='
+'
 done
 IFS=$oldifs
 exit 0

@@ -55,6 +55,13 @@
 2::chezmoi	git -- push
 2::chezmoi \<NL>git -- push --force
 2::timeout 5 chezmoi git -- push
+# --- a word that a file named git would complete: must block ---
+2::chezmoi gi[t] -- push
+2::chezmoi gi? -- push
+2::chezmoi g* -- push
+2::chezmoi -v [g]it -- push
+# accepted false positive: the rule does not know which word is the subcommand
+2::chezmoi status *
 # --- the original data-loss rules: must block ---
 2::chezmoi add -T x
 2::chezmoi add --template x
@@ -93,6 +100,10 @@
 0::chezmoi managed | grep git
 0::chezmoi status<NL>git log
 0::git log -- dot_config/git
+0::chezmoi add ~/notes[1].txt
+0::chezmoi re-add ~/.config/mise/conf.d/*.toml
+0::chezmoi source-path ~/.config/git/*
+0::chezmoi status ~/.zsh?c
 # --- a bare newline separates commands: must allow ---
 0::chezmoi status<NL>echo --config x
 0::chezmoi apply<NL>git push --force
