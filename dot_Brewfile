@@ -75,3 +75,4 @@ brew "zsh-completions"
 brew "zsh-syntax-highlighting"
 # Sentry command-line tool for error monitoring and debugging
 brew "getsentry/tools/sentry", trusted: true
+cask "font-plemol-jp-nf"

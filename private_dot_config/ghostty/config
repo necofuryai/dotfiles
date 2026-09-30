@@ -1,0 +1,11 @@
+# cmux also reads this config; keep it even without Ghostty.app.
+theme = TokyoNight
+font-family = PlemolJP35 Console NF
+background-opacity = 0.8
+background-blur = true
+font-size = 20
+adjust-cell-height = 2
+font-thicken = true
+keybind = ctrl+h=goto_split:left
+keybind = ctrl+l=goto_split:right
+scrollback-limit = 1000000000
