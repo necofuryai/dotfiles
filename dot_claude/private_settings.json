@@ -1,7 +1,8 @@
 {
   "cleanupPeriodDays": 180,
   "env": {
-    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1",
+    "XDG_RUNTIME_DIR": "/tmp/claude-501"
   },
   "attribution": {
     "commit": "",
