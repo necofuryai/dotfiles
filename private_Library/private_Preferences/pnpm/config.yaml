@@ -1,0 +1,5 @@
+# Global pnpm 11+/12 settings. Commands run inside Claude Code's sandbox
+# cannot create pnpm's link probe in ~/Library/pnpm, so without an explicit
+# storeDir pnpm falls back to a project-local .pnpm-store. pnpm expands
+# ${HOME} itself, which keeps the home path out of this public repo.
+storeDir: ${HOME}/Library/pnpm/store
