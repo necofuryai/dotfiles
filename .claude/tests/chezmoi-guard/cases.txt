@@ -42,6 +42,15 @@
 2::chezmoi edit help
 2::chezmoi edit x -- --help
 2::chezmoi help edit -c x
+# --- a -- that a flag takes as its value does not end the flags: must block ---
+2::chezmoi git -S x -- log
+2::chezmoi -S x git -- log
+2::chezmoi --age-recipient -- apply --force
+2::chezmoi --age-recipient -- edit x
+2::chezmoi --branch -- init --apply --force
+2::chezmoi --no-pager --age-recipient -- apply --force
+2::chezmoi -v --age-recipient -- edit x
+2::chezmoi --mode -- edit x
 # --- the original data-loss rules: must block ---
 2::chezmoi add -T x
 2::chezmoi add --template x
@@ -76,6 +85,55 @@
 2::env -C /tmp chezmoi apply --force
 2::env -P /opt/homebrew/bin chezmoi edit x
 2::env -S 'chezmoi edit x'
+2::gtimeout 5 chezmoi edit x
+2::gtimeout -s KILL 5 chezmoi edit x
+2::/opt/homebrew/bin/gtimeout 5 chezmoi edit x
+2::genv chezmoi apply --force
+2::gnice -n 5 chezmoi cd
+2::gnohup chezmoi apply --force
+2::stdbuf -oL chezmoi apply --force
+2::stdbuf -o L chezmoi apply --force
+2::/usr/bin/stdbuf -e 0 -o L chezmoi edit x
+2::stdbuf -o L -- chezmoi edit x
+2::gstdbuf --output L chezmoi apply --force
+2::gstdbuf --output=L chezmoi apply --force
+2::gstdbuf --out L chezmoi edit x
+2::gstdbuf --o L chezmoi edit x
+2::gstdbuf --e 0 chezmoi edit x
+2::genv --chdir /tmp chezmoi apply --force
+2::genv --unset FOO chezmoi apply --force
+2::genv --argv0 x chezmoi apply --force
+2::genv --env0-from /dev/null chezmoi apply --force
+2::genv --split-string 'chezmoi edit x'
+2::genv --split-string='chezmoi edit x'
+2::genv --s 'chezmoi edit x'
+2::env -S'chezmoi edit x'
+2::env -iS 'chezmoi edit x'
+2::env -iu FOO chezmoi edit x
+2::genv --block-signal chezmoi apply --force
+2::genv --ignore-environment chezmoi edit x
+2::timeout --sig KILL 5 chezmoi edit x
+2::timeout --s KILL 5 chezmoi edit x
+2::timeout -sKILL 5 chezmoi edit x
+2::timeout inf chezmoi edit x
+2::timeout 1e3 chezmoi edit x
+2::gtimeout 0x10 chezmoi apply --force
+2::gnice --adj 5 chezmoi cd
+2::nohup =chezmoi apply --force
+2::stdbuf -o L =chezmoi edit x
+2::env =chezmoi edit x
+2::gnice -n 5 =chezmoi cd
+2::exec =chezmoi edit x
+2::=stdbuf -oL chezmoi edit x
+2::=env chezmoi apply --force
+2::repeat 1+0 chezmoi edit x
+2::repeat -1+2 chezmoi edit x
+2::repeat 0x1 chezmoi apply --force
+2::repeat '1 ' chezmoi edit x
+2::stdbuf -oL time chezmoi edit x
+2::nohup time chezmoi apply --force
+2::command time chezmoi edit x
+2::env time -o /tmp/t chezmoi edit x
 2::noglob chezmoi apply --force
 2::nocorrect chezmoi edit x
 2::repeat 1 chezmoi edit x
@@ -124,6 +182,20 @@
 0::chezmoi status --config-format toml
 0::chezmoi git log --oneline -3
 0::chezmoi git log -p
+0::chezmoi git -- log -S foo
+0::chezmoi git -- log --grep edit
+0::chezmoi git -- commit -S -m x
+0::chezmoi git -- diff -W
+0::chezmoi git log -- -S foo
+0::timeout 30 chezmoi git -- log -S foo
+0::chezmoi -- apply --force
+0::chezmoi --age-recipient=x -- apply --force
+0::chezmoi git --no-pager -- log -S foo
+0::chezmoi git -v -- log --grep edit
+0::chezmoi --no-pager git -- log -S foo
+0::chezmoi git -nv -- diff -W
+0::chezmoi git -R -- log -S foo
+0::chezmoi git --dry-run --verbose -- commit -S -m x
 0::chezmoi apply -v
 0::chezmoi apply --dry-run --verbose
 0::chezmoi add ~/.zshrc
@@ -154,6 +226,24 @@
 0::rg chezmoi -o README.md
 0::timeout 30 rg chezmoi -o README.md
 0::env grep -rn chezmoi -o x
+0::gtimeout 30 rg chezmoi -o README.md
+0::genv grep -rn chezmoi -o x
+0::gnice -n 5 grep -c chezmoi CLAUDE.md
+0::gnohup rg chezmoi -o README.md
+0::stdbuf -oL rg chezmoi -o README.md
+0::stdbuf -o L grep -c chezmoi CLAUDE.md
+0::gstdbuf --output L grep -c chezmoi CLAUDE.md
+0::genv --chdir /tmp grep -c chezmoi x
+0::genv --split-string='echo chezmoi edit'
+0::env -iS 'echo chezmoi edit'
+0::genv --block-signal grep -c chezmoi x
+0::timeout --sig KILL 5 rg chezmoi -o README.md
+0::timeout inf rg chezmoi -o README.md
+0::nohup =rg chezmoi -o README.md
+0::=stdbuf -oL rg chezmoi -o README.md
+0::repeat 2 rg chezmoi -o README.md
+0::stdbuf -oL time rg chezmoi -o README.md
+0::env time -o /tmp/t grep -c chezmoi x
 0::git log --grep='chezmoi edit'
 0::git commit -m "docs: explain chezmoi cd"
 0::git commit -m "docs: chezmoi's --config"

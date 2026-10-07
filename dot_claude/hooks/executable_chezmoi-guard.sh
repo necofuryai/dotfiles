@@ -32,11 +32,18 @@
 # backslashes removed, so "--config", ch""ezmoi and \chezmoi are seen; an
 # expansion such as $f adds nothing to it, and an unquoted {a,b} becomes two
 # words. The name may be a path (/opt/homebrew/bin/chezmoi) or follow a
-# wrapper such as env, timeout, nice, nohup or noglob and its options. The
-# script that sh/bash/zsh -c runs (the operand after -c, not $0, $1, ...) and
-# the words eval joins are parsed in turn. The rules match whole words, so
-# chezmoi in a grep pattern, a -m message, a comment or a heredoc body is not
-# an invocation, and `chezmoi git commit -m "x --config"` passes.
+# wrapper such as env, timeout, nice, nohup, stdbuf, time or noglob and its
+# options, read as getopt reads them in the BSD and GNU forms, including the
+# g-prefixed copies Homebrew coreutils installs (genv, gtimeout, gnice,
+# gnohup, gstdbuf). The script that sh/bash/zsh -c runs (the operand
+# after -c, not $0, $1, ...) and the words eval joins are parsed in turn.
+# The rules match whole words, so chezmoi in a grep pattern, a -m message, a
+# comment or a heredoc body is not an invocation, and
+# `chezmoi git commit -m "x --config"` passes. Words after the -- that ends
+# chezmoi's flags are not checked, because chezmoi does not read them
+# (`chezmoi git -- log -S foo` passes); a -- right after a flag word is not
+# trusted as that end, since the flag may take it as its value, unless the
+# flag is known to take none (`chezmoi git --no-pager -- log -S foo`).
 #
 # A command that mentions chezmoi is blocked when shfmt cannot parse it, when
 # jq cannot read the syntax tree, or when shfmt is missing or not at major
@@ -48,9 +55,12 @@
 # This is friction against a confused model, not a boundary against a
 # deliberate one: `f=--config; chezmoi status $f x` passes, and so does
 # chezmoi run by xargs, find -exec or a script fed to sh on stdin
-# (`echo ... | sh`, `sh <<EOF`), which run inside the sandbox. The boundary
-# is the sandbox denyWrite on ~/.config/chezmoi/chezmoi.* plus the permission
-# rules. Exit 2 blocks the call; stderr reaches Claude.
+# (`echo ... | sh`, `sh <<EOF`), which run inside the sandbox. So do words
+# that zsh rewrites in ways this script does not model: ANSI-C escapes
+# ($'\x63hezmoi'), globs (chezmo[i]), {a..b} sequences and braces inside
+# quotes; a chezmoi hidden this way also gets past the cheap test below.
+# The boundary is the sandbox denyWrite on ~/.config/chezmoi/chezmoi.* plus
+# the permission rules. Exit 2 blocks the call; stderr reaches Claude.
 
 input=$(cat)
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
@@ -87,16 +97,59 @@ def braces:
   (capture("^(?<pre>[^{]*)[{](?<alts>[^{}]*,[^{}]*)[}](?<post>.*)$") // null) as $m
   | if $m == null then . else $m.alts | split(",")[] | $m.pre + . + $m.post | braces end;
 
+# The options of wrapper $w that take a value, its BSD and GNU forms
+# together: short letters and long names. env -i takes none but stdbuf -i
+# does, hence one table per wrapper. A long option whose value is optional
+# (env --block-signal[=SIG]) takes it only after =, so it is not listed.
+def valued($w):
+  {env: {short: "aCPSu", long: ["argv0", "chdir", "env0-from", "split-string", "unset"]},
+   exec: {short: "a", long: []},
+   nice: {short: "n", long: ["adjustment"]},
+   stdbuf: {short: "eio", long: ["error", "input", "output"]},
+   time: {short: "o", long: []},
+   timeout: {short: "ks", long: ["kill-after", "signal"]}}[$w] // {short: "", long: []};
+
+# Drops the option word in front and its value as getopt reads them for
+# wrapper $w. A short value is the rest of the word (-oL) or the next word
+# (-o L), also after other letters (-iS x). A long value follows = or is the
+# next word, and any prefix names the option (--sig KILL). The string of
+# env -S or --split-string is split into words and put back in front.
+def option($w):
+  valued($w) as $v | .[0] as $o | .[1:] as $rest
+  | if $o | startswith("--") then
+      ($o[2:] | capture("^(?<name>[^=]*)(?<eq>=?)(?<value>.*)$")) as $m
+      | ([$v.long[] | select($m.name != "" and startswith($m.name))][0]) as $name
+      | if $name == null then [null, null, $rest]
+        elif $m.eq == "=" then [$name, $m.value, $rest]
+        else [$name, $rest[0], $rest[1:]] end
+    else
+      ($o[1:] | split("")) as $l
+      | ([range($l | length) | select(. as $k | $v.short | contains($l[$k]))][0]) as $i
+      | if $i == null then [null, null, $rest]
+        elif $i + 1 < ($l | length) then [$l[$i], ($l[$i + 1:] | join("")), $rest]
+        else [$l[$i], $rest[0], $rest[1:]] end
+    end
+  | if .[0] == "S" or .[0] == "split-string" then (.[1] // "" | [splits(" +")] | map(select(. != ""))) + .[2]
+    else .[2] end;
+
 # Drops leading wrappers with their options and values, so that
-# `timeout -s KILL 5 chezmoi edit` starts at chezmoi. env -S splits its
-# string into words.
+# `timeout -s KILL 5 chezmoi edit` starts at chezmoi. A g-prefixed copy
+# reads like the original, and =stdbuf like stdbuf. env also drops its
+# NAME=VALUE words; a word that starts with = is a command that zsh expands
+# (=chezmoi), never an assignment. timeout drops the one operand after its
+# options, the duration in any form (5, inf, 1e3, 0x10). repeat takes no
+# options: its first word is the count, an arithmetic expression (1+0, -1+2).
+# time behind another wrapper is /usr/bin/time, not the zsh keyword.
 def unwrap:
-  if length > 0 and (.[0] | test("^(.*/)?(env|command|builtin|exec|nice|nohup|timeout|noglob|nocorrect|repeat|coproc|-)$")) then
-    .[1:]
-    | until(length == 0 or (.[0] | test("^-|=|^[0-9.]+[smhd]?$") | not);
-        if .[0] == "-S" then (.[1] // "" | [splits(" +")] | map(select(. != ""))) + .[2:]
-        elif .[0] | test("^-[aCknPsu]$|^--(signal|kill-after)$") then .[2:]
-        else .[1:] end)
+  if length > 0 and (.[0] | test("^(=|.*/)?(g?env|command|builtin|exec|g?nice|g?nohup|g?stdbuf|time|g?timeout|noglob|nocorrect|repeat|coproc|-)$")) then
+    (.[0] | sub("^(=|.*/)?g?"; "")) as $w
+    | .[1:]
+    | if $w == "repeat" then .[1:]
+      else
+        until(length == 0 or (.[0] | test(if $w == "env" then "^-|^[^=]+=" else "^-" end) | not);
+          if .[0] | startswith("-") then option($w) else .[1:] end)
+        | if $w == "timeout" then .[1:] else . end
+      end
     | unwrap
   else . end;
 
@@ -126,10 +179,28 @@ def sets(letters): any(.[]; shorts | test("[" + letters + "]"));
 # After -- a --help is an argument, and `chezmoi edit help` edits a file.
 def help: .[0] == "help" or (.[:(index("--") // length)] | any(.[]; . == "--help" or . == "-h"));
 
+# The words chezmoi reads as its own: those before the -- that ends its
+# flags. chezmoi passes the words after it to git (`chezmoi git -- log -S
+# foo`) or takes them as operands, and does not dispatch a subcommand from
+# them. A flag that takes a value also takes a -- after it as that value
+# (`chezmoi --age-recipient -- apply --force` runs apply), so a -- right
+# after a word that may be such a flag ends nothing, unless the word is one
+# of the global flags that take no value (`chezmoi --help`, v2.73), alone
+# or as a cluster of short ones (-nv). A flag missing from the list stays
+# untrusted, so a flag chezmoi adds later cannot open a hole.
+def novalue:
+  test("^--(debug|dry-run|error-on-conflict|force|help|interactive|keep-going|less-interactive|no-pager|no-tty|refresh-externals|skip-secrets|source-path|use-builtin-diff|verbose)$|^-[hknRv]+$");
+
+def own:
+  (first(range(length) as $i
+    | select(.[$i] == "--" and ($i == 0 or (.[$i - 1] | (test("^-[^=]*$") | not) or novalue)))
+    | $i) // length) as $end
+  | .[:$end];
+
 .. | objects | select(.Type == "CallExpr") | [.Args[]? | text | braces] | unwrap
 | if length == 0 then empty
   elif .[0] | test("^(=|.*/)?chezmoi$") then
-    .[1:]
+    .[1:] | own
     | if has("^(add|manage)$") and (has("^--(template|autotemplate|force)(=|$)") or sets("Ta")) then "add"
       elif has("^--force(=|$)") and (has("^(apply|update)$|^--apply(=|$)") or (has("^init$") and sets("a"))) then "force"
       elif has("^--(config|source|destination|working-tree|output|persistent-state|cache|override-data|override-data-file)(=|$)") or sets("cSDWo") then "redirect"
