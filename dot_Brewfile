@@ -7,6 +7,8 @@ brew "chezmoi"
 brew "cocoapods"
 # Container runtimes on MacOS (and Linux) with minimal setup
 brew "colima"
+# GNU File, Shell, and Text utilities
+brew "coreutils"
 # Dart Language SDK, including the VM, dart2js, core libraries, and more
 brew "dart-sdk"
 # Pack, ship and run any application as a lightweight container
