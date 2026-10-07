@@ -83,6 +83,10 @@ After editing `dot_claude/hooks/executable_chezmoi-guard.sh`, run
 blocking case and a passing neighbour to its `cases.txt` for every rule you
 change.
 
+After editing `dot_claude/hooks/executable_git-upstream-notice.sh`, run
+`sh .claude/tests/git-upstream-notice/run.sh` (needs jq) and add a notice
+case and a silent neighbour to its `cases.txt` for every match you change.
+
 `chezmoi status` cannot tell you which side moved, so read it with this table
 (verified on v2.72.2):
 

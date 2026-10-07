@@ -1,0 +1,73 @@
+# Cases for dot_claude/hooks/executable_git-upstream-notice.sh.
+# Format: <expect>::<must contain>::<must not contain>::<hook input JSON>
+#   expect      notice = prints additionalContext for the input's event
+#               silent = prints nothing
+#   must ...    substring of additionalContext, or - for no check
+# <HERE> in the JSON becomes this directory. Every case must exit 0.
+#
+# Shapes follow Claude Code 2.1.289 and git 2.56.0: on success git's stderr
+# arrives merged into tool_response.stdout, and tool_response.stderr carries
+# Claude Code's own notes such as the sandbox_violations block; on failure the
+# merged output is in `error` after "Exit code N". Hint lines are what git
+# really prints (<remote>/refs/heads/<branch>).
+
+# push -u from a sandboxed `git -C`: pushed, upstream not written, exit 0.
+notice::push 自体は成功しているので、push はやり直さない::refs/heads::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\nhint:\nhint: After fixing the error cause you may try to fix up\nhint: the remote tracking information by invoking:\nhint:   git branch --set-upstream-to=origin/refs/heads/feat\n","stderr":"\n<sandbox_violations>\ngit(123) deny(1) file-write-create /r/.git/config.lock\n</sandbox_violations>","interrupted":false}}
+# Same input: the sandbox is named, the upstream-only step is spelled out.
+notice::原因はサンドボックス::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\n","stderr":""}}
+notice::サンドボックスの外で git branch --set-upstream-to=<remote>/<branch> <branch> を実行する::単独::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\n","stderr":""}}
+notice::gh pr create --head <branch>::再実行する::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\n","stderr":""}}
+# A fast-forward update of an existing branch counts as a push too.
+notice::push 自体は成功している::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n   1a2b3c4..5d6e7f8  feat -> feat\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\n","stderr":""}}
+# --porcelain report (tab-separated) counts as a push.
+notice::push 自体は成功している::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push --porcelain -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n*\trefs/heads/feat:refs/heads/feat\t[new branch]\nDone\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\n","stderr":""}}
+# --porcelain with a rejected ref is not called a success.
+notice::ref ごとに違う::push はやり直さない::{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"git -C /r push --porcelain -u origin main feat"},"error":"Exit code 1\nTo https://github.com/o/r.git\n*\trefs/heads/feat:refs/heads/feat\t[new branch]\n!\trefs/heads/main:refs/heads/main\t[rejected] (fetch first)\nDone\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\nerror: failed to push some refs to 'https://github.com/o/r.git'\n"}
+# Piped through tail: the tool exit code is tail's, the report still decides.
+notice::push 自体は成功している::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat 2>&1 | tail -5"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\n","stderr":""}}
+# One ref rejected: exit 1, PostToolUseFailure, no claim that the push worked.
+notice::ref ごとに違う::push はやり直さない::{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin main feat"},"error":"Exit code 1\nTo https://github.com/o/r.git\n * [new branch]      feat -> feat\n ! [rejected]        main -> main (fetch first)\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\nerror: failed to push some refs to 'https://github.com/o/r.git'\n"}
+# A rejected ref seen through a pipe (PostToolUse) is not called a success.
+notice::ref ごとに違う::push はやり直さない::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin main feat 2>&1 | tail"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\n ! [rejected]        main -> main (fetch first)\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\nerror: failed to push some refs to 'https://github.com/o/r.git'\n","stderr":""}}
+# A later part of the command failed after a clean push: no success claim.
+notice::ref ごとに違う::push はやり直さない::{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat && false"},"error":"Exit code 1\nTo https://github.com/o/r.git\n * [new branch]      feat -> feat\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\n"}
+# A quiet push prints no report: ask for ls-remote, claim nothing.
+notice::git ls-remote <remote> <branch> で確かめて::push 自体は成功::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -q -u origin feat"},"tool_response":{"stdout":"error: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\nhint:\nhint: After fixing the error cause you may try to fix up\nhint: the remote tracking information by invoking:\nhint:   git branch --set-upstream-to=origin/refs/heads/feat\n","stderr":""}}
+# Nothing left to push, as captured live with `... && false`: say so.
+notice::送るものは無かった（Everything up-to-date）::git ls-remote::{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat && false"},"error":"Exit code 1\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\nhint:\nhint: After fixing the error cause you may try to fix up\nhint: the remote tracking information by invoking:\nhint:   git branch --set-upstream-to=origin/refs/heads/feat\nEverything up-to-date"}
+# Repository outside the session: refs/remotes failed too, so fetch first.
+notice::git fetch <remote> <branch> のあとに::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /other push -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\nhint:   git branch --set-upstream-to=origin/refs/heads/feat\nerror: update_ref failed for ref 'refs/remotes/origin/feat': cannot lock ref 'refs/remotes/origin/feat': Unable to create '/other/.git/refs/remotes/origin/feat.lock': Operation not permitted\n","stderr":""}}
+# switch -c --track creates the branch, does not check it out, exits 1.
+notice::切り替わっていない::PR は::{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"git -C /r switch -c feat --track origin/feat"},"error":"Exit code 1\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\nhint:\nhint: After fixing the error cause you may try to fix up\nhint: the remote tracking information by invoking:\nhint:   git branch --set-upstream-to=origin/refs/heads/feat\n"}
+# git branch -u only writes the upstream: no branch-creation sentence.
+notice::サンドボックスの外で::切り替わっていない::{"hook_event_name":"PostToolUseFailure","tool_name":"Bash","tool_input":{"command":"git -C /r branch -u origin/feat feat"},"error":"Exit code 1\nerror: could not lock config file .git/config: Operation not permitted\nerror: unable to write upstream branch configuration\n"}
+# A stale lock file is not blamed on the sandbox, and only the upstream is redone.
+notice::古い .git/config.lock が残っているならそれを消し、git branch --set-upstream-to=<remote>/<branch> <branch> で追跡設定だけを書く::原因はサンドボックス::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git push -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\nerror: could not lock config file .git/config: File exists\nerror: unable to write upstream branch configuration\n","stderr":""}}
+# No lock line at all: the cause is left to the output.
+notice::原因を取り除いてから::dangerouslyDisableSandbox::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push"},"tool_response":{"stdout":"error: unable to write upstream branch configuration\n","stderr":""}}
+# Output too large to inline: only the persisted file holds the marker.
+notice::push 自体は成功している::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"(output truncated: head only)\n","stderr":"","persistedOutputPath":"<HERE>/persisted-output.txt","persistedOutputSize":4096}}
+# CRLF line endings are tolerated.
+notice::追跡設定（upstream）::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push"},"tool_response":{"stdout":"error: unable to write upstream branch configuration\r\n","stderr":""}}
+# A string tool_response is searched too.
+notice::追跡設定（upstream）::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":"error: unable to write upstream branch configuration\n"}
+# Unknown event name falls back to PostToolUse.
+notice::追跡設定（upstream）::-::{"hook_event_name":"SomethingNew","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"error: unable to write upstream branch configuration\n"}}
+# Known false positive, accepted: a whole-line copy from grep -o.
+notice::原因は git の出力で確かめる::push 自体は成功::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"grep -rho 'error: unable to write upstream branch configuration' ."},"tool_response":{"stdout":"error: unable to write upstream branch configuration\n","stderr":""}}
+
+# The message only in the command (a grep for it) stays silent.
+silent::-::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"grep -rn 'error: unable to write upstream branch configuration' ."},"tool_response":{"stdout":"","stderr":""}}
+# grep output quoting the message inside a longer line stays silent.
+silent::-::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"grep -rn upstream notes.md"},"tool_response":{"stdout":"notes.md:3:git printed `error: unable to write upstream branch configuration` and exited 0\n","stderr":""}}
+# cat of this hook stays silent: the message sits inside an assignment.
+silent::-::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"cat ~/.claude/hooks/git-upstream-notice.sh"},"tool_response":{"stdout":"marker='error: unable to write upstream branch configuration'\n","stderr":""}}
+# A line that only starts with the message stays silent.
+silent::-::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"error: unable to write upstream branch configuration (simulated)\n","stderr":""}}
+# A normal push with the upstream written stays silent.
+silent::-::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git push -u origin feat"},"tool_response":{"stdout":"To https://github.com/o/r.git\n * [new branch]      feat -> feat\nbranch 'feat' set up to track 'origin/feat'.\n","stderr":""}}
+# A persisted path that does not exist is ignored.
+silent::-::-::{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"git -C /r push -u origin feat"},"tool_response":{"stdout":"(output truncated: head only)\n","persistedOutputPath":"<HERE>/no-such-file.txt"}}
+# Malformed and empty input stay silent.
+silent::-::-::not json at all
+silent::-::-::
