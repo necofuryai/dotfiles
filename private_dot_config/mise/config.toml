@@ -16,4 +16,4 @@ allow_builds = ["@opengsd/gsd-pi"]
 trust_policy_excludes = ["@mariozechner/clipboard-darwin-x64@0.3.6", "@mariozechner/clipboard-darwin-arm64@0.3.6", "@mariozechner/clipboard-linux-x64-gnu@0.3.6", "@mariozechner/clipboard-linux-x64-musl@0.3.6", "@mariozechner/clipboard-win32-x64-msvc@0.3.6", "@mariozechner/clipboard-linux-arm64-gnu@0.3.6", "@mariozechner/clipboard-darwin-universal@0.3.6", "@mariozechner/clipboard-linux-arm64-musl@0.3.6", "@mariozechner/clipboard-win32-arm64-msvc@0.3.6", "@mariozechner/clipboard-linux-riscv64-gnu@0.3.6"]
 
 [settings]
-idiomatic_version_file_enable_tools = ["ruby", "go", "node"]
+idiomatic_version_file_enable_tools = ["ruby", "go", "node", "pnpm"]
