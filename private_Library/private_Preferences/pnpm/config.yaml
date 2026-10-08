@@ -3,3 +3,8 @@
 # storeDir pnpm falls back to a project-local .pnpm-store. pnpm expands
 # ${HOME} itself, which keeps the home path out of this public repo.
 storeDir: ${HOME}/Library/pnpm/store
+
+# mise selects pnpm from each project's packageManager field, and the
+# standalone copy under $PNPM_HOME is gone. The update notice would only
+# tell you to run `pnpm self-update`, which reinstalls that copy.
+updateNotifier: false
