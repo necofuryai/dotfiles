@@ -32,10 +32,10 @@ export GOPATH="$HOME/go"
 # --------------------------------------------
 # PATH
 # --------------------------------------------
+# codex is ~/.local/bin/codex (on PATH via .zshenv), a chezmoi-managed link
+# into the CLI bundled with ChatGPT.app; the Homebrew codex cask is
+# intentionally not installed
 path=(
-  # codex CLI bundled with ChatGPT.app (the app creates this symlink);
-  # the Homebrew codex cask is intentionally not installed
-  "$HOME/.local/share/codex-desktop/bin"
   "$HOME/.bun/bin"
   /opt/homebrew/opt/mysql-client/bin
   /opt/homebrew/opt/rustup/bin
