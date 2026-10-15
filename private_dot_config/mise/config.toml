@@ -10,8 +10,10 @@ ruby = "4.0.6"
 golangci-lint = "2.14.0"
 "npm:typescript-language-server" = "6.0.0"
 
+# Upgrade gsd by bumping `version`, then `mise install npm:@opengsd/gsd-pi`.
+# `gsd update|upgrade` runs `npm install -g`, which shadows this pin.
 [tools."npm:@opengsd/gsd-pi"]
-version = "1.20.1"
+version = "1.22.0"
 allow_builds = ["@opengsd/gsd-pi"]
 trust_policy_excludes = ["@mariozechner/clipboard-darwin-x64@0.3.6", "@mariozechner/clipboard-darwin-arm64@0.3.6", "@mariozechner/clipboard-linux-x64-gnu@0.3.6", "@mariozechner/clipboard-linux-x64-musl@0.3.6", "@mariozechner/clipboard-win32-x64-msvc@0.3.6", "@mariozechner/clipboard-linux-arm64-gnu@0.3.6", "@mariozechner/clipboard-darwin-universal@0.3.6", "@mariozechner/clipboard-linux-arm64-musl@0.3.6", "@mariozechner/clipboard-win32-arm64-msvc@0.3.6", "@mariozechner/clipboard-linux-riscv64-gnu@0.3.6"]
 
