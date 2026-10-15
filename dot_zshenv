@@ -15,3 +15,8 @@ case ":$PATH:" in
   *":$HOME/.local/share/mise/shims:"*) ;;
   *) export PATH="$HOME/.local/share/mise/shims:$PATH" ;;
 esac
+
+# Stop reading a bare `go X.Y` in go.mod as a version, as mise 2026.11.0 will;
+# silences the [idiomatic.go.mod.go-directive] deprecation warning.
+# Remove once mise >= 2026.11.0, which drops this setting.
+export MISE_IDIOMATIC_VERSION_FILE_IGNORE_MINIMUM_VERSIONS=1
