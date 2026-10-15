@@ -122,7 +122,9 @@ fi
 # Homebrew Bundle Sync
 # --------------------------------------------
 if command -v brew &>/dev/null; then
-  _update_brewfile() {
+  # No leading `_`: Claude Code's shell snapshot drops `_` functions, which
+  # would leave brew() and brewup() calling a missing helper there.
+  update_brewfile() {
     command brew bundle dump --force --tap --formula --cask --file="$HOME/.Brewfile" || return
     echo "Brewfile updated"
     if command -v chezmoi &>/dev/null; then
@@ -136,7 +138,7 @@ if command -v brew &>/dev/null; then
     local exit_code=$?
     case "$1" in
       install|uninstall|remove|tap|untap)
-        [[ $exit_code -eq 0 ]] && _update_brewfile
+        [[ $exit_code -eq 0 ]] && update_brewfile
         ;;
     esac
     return $exit_code
@@ -149,7 +151,7 @@ if command -v brew &>/dev/null; then
       brew cleanup && \
       brew doctor || return
 
-    _update_brewfile || return
+    update_brewfile || return
 
     if ! command -v chezmoi &>/dev/null; then
       echo "chezmoi not found; skipping Brewfile staging" >&2
