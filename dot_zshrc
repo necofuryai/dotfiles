@@ -179,9 +179,12 @@ fi
 # `npm install -g`, which lands in mise's node prefix and shadows the pin.
 # `update --models` only refreshes the model catalog, so it passes.
 # Not covered: `/gsd upgrade` in the TUI and the web UI's Update button.
-_gsd_pin_guard() {
-  local bin=$1
-  shift
+# One body defines both names and funcstack gives the name it was called
+# by ($0 is the script name when the caller emulates sh). No `_` helper,
+# because Claude Code's shell snapshot drops `_` functions.
+gsd gsd-cli() {
+  emulate -L zsh
+  local bin=${funcstack[1]}
   case "$1" in
     update|upgrade)
       if [[ "$2" != "--models" ]]; then
@@ -194,8 +197,61 @@ _gsd_pin_guard() {
   esac
   command "$bin" "$@"
 }
-gsd() { _gsd_pin_guard gsd "$@"; }
-gsd-cli() { _gsd_pin_guard gsd-cli "$@"; }
+
+# --------------------------------------------
+# npm Global Uninstall Cleanup
+# --------------------------------------------
+# npm prunes a scope directory emptied by an uninstall only under
+# install-strategy=linked, which global installs never use, so
+# `npm uninstall -g @scope/pkg` leaves an empty @scope behind in the
+# global root. Remove such directories after a successful global
+# uninstall. Only interactive zsh has this function: scripts, `zsh -c`
+# and `mise exec ... -- npm` run npm directly.
+npm() {
+  emulate -L zsh
+  command npm "$@"
+  local exit_code=$?
+  (( exit_code == 0 )) || return $exit_code
+
+  # Global as npm decides it: the -g flag (last one wins) or --location=global
+  local arg prev cmd gflag location prefix
+  for arg in "$@"; do
+    case "$prev" in
+      --location|-L) location=$arg; prev=; continue ;;
+      --prefix|-C) prefix=$arg; prev=; continue ;;
+    esac
+    case "$arg" in
+      --dry-run|--dry-run=true|-h|-H|'-?'|--help|--usage|-v|--version)
+        return $exit_code ;;
+      -g|--global|--global=true) gflag=1 ;;
+      --local|--no-global|--global=false) gflag= ;;
+      --location=*|-L=*) location=${arg#*=} ;;
+      --prefix=*) prefix=${arg#*=} ;;
+      -*) ;;
+      *) [[ -z "$cmd" ]] && cmd=$arg ;;
+    esac
+    prev=$arg
+  done
+  [[ -n "$gflag" || "$location" == global ]] || return $exit_code
+
+  # Every abbreviation npm resolves to uninstall (lib/utils/cmd-list.js)
+  case "$cmd" in
+    un|uni|unin|unins|uninst|uninsta|uninstal|uninstall) ;;
+    unl|unli|unlin|unlink|r|rm|rem|remo|remov|remove) ;;
+    *) return $exit_code ;;
+  esac
+
+  local -a root_args=(root -g)
+  [[ -n "$prefix" ]] && root_args+=(--prefix "$prefix")
+  local root scope_dir
+  root=$(command npm "${root_args[@]}") || return $exit_code
+  [[ "$root" == /?* ]] || return $exit_code
+  # (N/^F): directories that are empty; rmdir refuses anything else
+  for scope_dir in "$root"/@*(N/^F); do
+    rmdir -- "$scope_dir" && print -u2 "Removed empty scope directory: $scope_dir"
+  done
+  return $exit_code
+}
 
 # --------------------------------------------
 # Google Cloud SDK
