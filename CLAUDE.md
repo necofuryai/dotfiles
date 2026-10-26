@@ -87,6 +87,10 @@ After editing `dot_claude/hooks/executable_git-upstream-notice.sh`, run
 `sh .claude/tests/git-upstream-notice/run.sh` (needs jq) and add a notice
 case and a silent neighbour to its `cases.txt` for every match you change.
 
+After editing `dot_local/bin/executable_dotfiles-git`, run
+`sh .claude/tests/dotfiles-git/run.sh` and add an accepted case and a rejected
+neighbour to its `cases.txt` for every rule you change.
+
 `chezmoi status` cannot tell you which side moved, so read it with this table
 (verified on v2.72.2):
 
