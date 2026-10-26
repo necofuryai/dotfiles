@@ -224,7 +224,7 @@ check() {
       add) block 'chezmoi add with -T/--template, -a/--autotemplate or --force rewrites a .tmpl with rendered literals (exit 0, no prompt, no warning) and bakes an absolute home path into this public repository. Edit the .tmpl by hand instead. See the hard rules in CLAUDE.md of the chezmoi source repository.' ;;
       force) block 'chezmoi apply --force (also update / init --apply) overwrites a drifted target with no prompt and no output, discarding Claude Code permission approvals in ~/.claude/settings.json. Run plain apply and answer skip at the drift prompt. See the hard rules in CLAUDE.md of the chezmoi source repository.' ;;
       redirect) block 'chezmoi with -c/--config, -S/--source, -D/--destination, -W/--working-tree, -o/--output, --persistent-state, --cache or --override-data(-file). chezmoi runs outside the sandbox, so a config, source or template data written from inside it would execute outside it. Use the default config, source and destination.' ;;
-      run) block 'chezmoi execute-template / cd / edit runs a template, a shell or an editor outside the sandbox. Edit the target with the Edit tool and run chezmoi re-add instead.' ;;
+      run) block 'chezmoi execute-template / cd / edit runs a template, a shell or an editor outside the sandbox. Edit the source file (chezmoi source-path <target>) with the Edit tool instead.' ;;
       bash\ * | zsh\ *) check "${finding%% *}" "$(printf '%s' "${finding#* }" | jq -r .)" ;;
     esac
   done
