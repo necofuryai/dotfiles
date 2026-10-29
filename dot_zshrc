@@ -148,8 +148,11 @@ if command -v brew &>/dev/null; then
     brew update && \
       brew upgrade --greedy --no-ask && \
       brew autoremove && \
-      brew cleanup && \
-      brew doctor || return
+      brew cleanup || return
+
+    # brew doctor exits 1 on any warning, even an advisory one such as a
+    # deprecated formula, so it reports without blocking the Brewfile sync.
+    brew doctor
 
     update_brewfile || return
 
