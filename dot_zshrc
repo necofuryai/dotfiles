@@ -202,6 +202,34 @@ gsd gsd-cli() {
 }
 
 # --------------------------------------------
+# bun Self-Update Guard
+# --------------------------------------------
+# bun is pinned in ~/.config/mise/config.toml. `bun upgrade` replaces the
+# binary inside mise's install directory, so installs/bun/<pin> keeps the
+# pinned name while the binary reports the new version. Like bun itself,
+# the guard takes the first argument that is not a flag as the subcommand,
+# so `bun --silent upgrade` is blocked too. `bun upgrade` also rewrote
+# ~/.bun/_bun and mise does not, hence the `bun completions` step. Only
+# interactive zsh has this function: scripts, `zsh -c` and
+# `mise exec ... -- bun` run bun directly.
+bun() {
+  emulate -L zsh
+  local arg
+  for arg in "$@"; do
+    [[ "$arg" == -* ]] && continue
+    if [[ "$arg" == upgrade ]]; then
+      print -u2 "bun upgrade: blocked; bun is pinned by mise."
+      print -u2 "Bump bun in the chezmoi source of ~/.config/mise/config.toml, then run:"
+      print -u2 "  chezmoi apply ~/.config/mise/config.toml && mise install bun && mise prune --tools bun"
+      print -u2 "Then, at a new prompt, refresh ~/.bun/_bun with: bun completions"
+      return 1
+    fi
+    break
+  done
+  command bun "$@"
+}
+
+# --------------------------------------------
 # npm Global Uninstall Cleanup
 # --------------------------------------------
 # npm prunes a scope directory emptied by an uninstall only under
