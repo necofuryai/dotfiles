@@ -176,32 +176,6 @@ if command -v brew &>/dev/null; then
 fi
 
 # --------------------------------------------
-# gsd Self-Update Guard
-# --------------------------------------------
-# gsd is pinned in ~/.config/mise/config.toml. Its self-update runs
-# `npm install -g`, which lands in mise's node prefix and shadows the pin.
-# `update --models` only refreshes the model catalog, so it passes.
-# Not covered: `/gsd upgrade` in the TUI and the web UI's Update button.
-# One body defines both names and funcstack gives the name it was called
-# by ($0 is the script name when the caller emulates sh). No `_` helper,
-# because Claude Code's shell snapshot drops `_` functions.
-gsd gsd-cli() {
-  emulate -L zsh
-  local bin=${funcstack[1]}
-  case "$1" in
-    update|upgrade)
-      if [[ "$2" != "--models" ]]; then
-        print -u2 "$bin $1: blocked; gsd is pinned by mise."
-        print -u2 "Bump version in the chezmoi source of ~/.config/mise/config.toml, then run:"
-        print -u2 "  chezmoi apply ~/.config/mise/config.toml && mise install npm:@opengsd/gsd-pi && gsd list"
-        return 1
-      fi
-      ;;
-  esac
-  command "$bin" "$@"
-}
-
-# --------------------------------------------
 # bun Self-Update Guard
 # --------------------------------------------
 # bun is pinned in ~/.config/mise/config.toml. `bun upgrade` replaces the
