@@ -175,6 +175,18 @@
   },
   "model": "opus[1m]",
   "enableAllProjectMcpServers": true,
+  "deniedMcpServers": [
+    { "serverName": "plugin:engineering:slack" },
+    { "serverName": "plugin:engineering:linear" },
+    { "serverName": "plugin:engineering:asana" },
+    { "serverName": "plugin:engineering:atlassian" },
+    { "serverName": "plugin:engineering:notion" },
+    { "serverName": "plugin:engineering:github" },
+    { "serverName": "plugin:engineering:pagerduty" },
+    { "serverName": "plugin:engineering:datadog" },
+    { "serverName": "plugin:engineering:gmail" },
+    { "serverName": "plugin:engineering:google calendar" }
+  ],
   "hooks": {
     "PreToolUse": [
       {
